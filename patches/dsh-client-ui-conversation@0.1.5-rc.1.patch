@@ -1,0 +1,9 @@
+diff --git a/lib/client.js b/lib/client.js
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -13702,1 +13702,1 @@
+-			"hero.headline": "探索未至之境",
++			"hero.headline": "zenwit",
+@@ -13864,1 +13864,1 @@
+-			"hero.headline": "Into the Unknown",
++			"hero.headline": "zenwit",

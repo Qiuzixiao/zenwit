@@ -1,0 +1,4 @@
+# Bilingual-pair consistency record. Both languages carry equal authority.
+# Update both files and record their Git blob hashes after editing either side.
+catalog-adapter-guide.md: b86287b31f2da5c535f43675602dac05ad72928d
+catalog-adapter-guide.zh.md: 28f1a5d94fe035773ccd2c3c4b7e4e2e432df7f5
