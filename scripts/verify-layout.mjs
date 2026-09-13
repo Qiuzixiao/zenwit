@@ -27,6 +27,7 @@ if (JSON.stringify(workspace.workspaces) !== JSON.stringify([
   'dsh-plugin-desktop-beta',
   'dsh-community-fabric',
   'dsh-community-market',
+  'zenwit-workspace',
 ])) {
   fail('the root Yarn workspace must contain the desktop, community-fabric, and community-market packages')
 }

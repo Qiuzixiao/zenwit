@@ -1,6 +1,9 @@
 .root {
   position: relative;
   min-width: 0;
+  flex: 0 1 auto;
+  max-width: min(360px, 45cqw);
+  margin-right: var(--dsh-composer-model-margin-end, 0px);
 }
 
 /* Figma 313:14108 ToggleButton: 13/20 medium secondary label, 4px gap,
@@ -11,10 +14,7 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-  /* Legacy fallback, then a row-relative cap that grants long names more
-     room without letting this trailing control consume the composer. */
-  max-width: 220px;
-  max-width: min(360px, 45cqw);
+  max-width: 100%;
   height: 28px;
   padding: 0 4px 0 8px;
   border: none;
@@ -69,12 +69,9 @@
   flex: 0 0 auto;
 }
 
-/* Icon-only floor: past continuous shrink (effort ellipsizes away first, then
-   the name), a 360px composer row leaves the 45cqw cap too little for a
-   legible name, so the text yields to the Models glyph. Same anonymous
-   container as PermissionSelect's 460px cut (InputBar .row); the full name
-   stays reachable through the trigger's title and aria-label. */
-@container (max-width: 360px) {
+/* Two-row toolbars retain a shortened model name; only the smallest rows
+   need an icon. The full name remains in the title and accessible label. */
+@container (max-width: 220px) {
   .triggerIcon {
     display: block;
   }

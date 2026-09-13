@@ -1,28 +1,15 @@
-/**
- * Sidebar slot contract: the registrant-side props composition for the
- * layout-owned `sidebar` slot, plus the holes this shell declares. The shell
- * owns column geometry, the brand row, New Session, and global panel rows;
- * everything between the workspace section header and the list bottom is the
- * `sidebar.workspaces` registrant's (ui-workspace), and the foot is the
- * `sidebar.settings` registrant's (ui-settings), followed by optional footer
- * actions in `sidebar.footer.action`.
- */
-import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
+/** Sidebar extension contracts. The workbench owns runtime seat declarations. */
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /**
      * Brand mark rendered in the expanded brand row and collapsed rail.
-     * Declared by this package's `sidebar` entry; deployments may replace
-     * the shell's fish fallback without replacing the surrounding controls.
+     * The composing shell supplies the requested icon size.
      */
     'sidebar.brand.mark': { kind: 'single'; scope: 'root'; owner: SidebarBrandMarkOwnerProps }
     /**
-     * Brand name rendered beside the expanded mark. Declared by this
-     * package's `sidebar` entry; the shell supplies a generic text fallback.
+     * Brand name rendered beside the expanded mark when a shell declares this seat.
      */
     'sidebar.brand.name': { kind: 'single'; scope: 'root'; owner: SidebarBrandNameOwnerProps }
     /**
@@ -31,21 +18,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'sidebar.panellist': { kind: 'list'; scope: 'root'; owner: SidebarPanelIconOwnerProps }
     /**
-     * The workspace/session browsing region: section header, search, the
-     * grouped/flat session list, and every workspace dialog. Declared by this
-     * package's 'sidebar' entry (declaring is claiming); ui-workspace
-     * registers the browser.
+     * Optional workspace/session browsing seat for a composing shell.
      */
     'sidebar.workspaces': { kind: 'single'; scope: 'root'; owner: SidebarSectionOwnerProps }
     /**
-     * The settings seat at the sidebar foot. Declared by this package's
-     * 'sidebar' entry; ui-settings registers its trigger row + modal panel.
-     * The sidebar passes only its column state — it holds no settings state.
+     * Settings seat declared by the workbench; ui-settings registers its
+     * trigger row and modal panel. The owner supplies only display state.
      */
     'sidebar.settings': { kind: 'single'; scope: 'root'; owner: SidebarSettingsOwnerProps }
     /**
-     * Optional actions beside Settings at the sidebar foot. Declared by this
-     * package's 'sidebar' entry; each action receives only the column state.
+     * Optional actions beside Settings; the composing shell declares this seat
+     * and supplies only display state.
      */
     'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: SidebarFooterActionOwnerProps }
   }
@@ -106,39 +89,3 @@ export interface SidebarFooterActionOwnerProps {
   /** Whether the sidebar renders wide content (false = 56px rail). */
   wide: boolean
 }
-
-/**
- * Registrant-private injected share (arrives via the register inject
- * factory). The renderer binds the panel metadata source to usePanels.
- */
-export type SidebarRootInjected = {
-  /**
-   * Start a New Session: with a workspace, reuse-or-create its blank session
-   * and open it; without one, inherit the current Session Workspace, then the
-   * recent Workspace, or clear into the New Session pure view when none exist.
-   */
-  startSession: (workspaceId?: WorkspaceId) => void
-  /** Toggle the sidebar column through the layout service. */
-  toggleSidebar: () => void
-  /** Select the global panel addressed by a sidebar row. */
-  selectPanel: (id: MainPanelId) => void
-  /** Private reactive sources bound to framework selector hooks. */
-  hooks: { panels: ObservableSnapshot<readonly SidebarPanelMetadata[]> }
-}
-
-/**
- * Full component props: layout owner state/actions plus the declared holes'
- * render shares, this package's injected callbacks, and the standard locale
- * seat. Panel metadata arrives through an injected observable.
- */
-export type SidebarRootComponentProps =
-  PropsRuntime<'sidebar'>
-  & PropsRenderSlots<
-    | 'sidebar.brand.mark'
-    | 'sidebar.brand.name'
-    | 'sidebar.panellist'
-    | 'sidebar.workspaces'
-    | 'sidebar.settings'
-    | 'sidebar.footer.action'
-  >
-  & InjectFace<SidebarRootInjected> & PropsLocale<'sidebar'>

@@ -9,7 +9,8 @@
 // job is to be visible (`[data-snapshot-probe]`): its absence before the answer
 // and presence after it is the v3 user gate, proven rather than described.
 import { readFile } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
@@ -18,7 +19,7 @@ import {
   captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot, REPO_ROOT } from './support.ts'
 
 const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/cordis-tool-round/session.v3.jsonl', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/cordis-tool-round/ui.expected.md', import.meta.url))
@@ -78,6 +79,8 @@ describe('web e2e: Cordis tools use their owned cards', () => {
       compareReplaySession: true,
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15 }),
     })
+    const workspace = await import(pathToFileURL(join(REPO_ROOT, '../zenwit-workspace/lib/index.js')).href)
+    await scaffold.ctx.plugin(workspace, { homeDir: scaffold.harnessHome, projectsDir: join(scaffold.workspaceCwd, 'projects') })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     scaffold.ctx.sessionProjections.onChanged((_session, key, value, seq) => {
       if (key === 'modelSelection') modelChanges.push(`${String(seq)}:${JSON.stringify(value)}`)
@@ -116,6 +119,16 @@ describe('web e2e: Cordis tools use their owned cards', () => {
     // model said, and the gate is a real round trip through the real panel.
     const approve = page.locator('[data-cordis-approve]').first()
     await approve.waitFor({ timeout: 90_000 })
+    for (const width of [1440, 768]) {
+      await page.setViewportSize({ width, height: 900 })
+      const panel = await page.locator('[data-cordis-panel]').boundingBox()
+      expect(panel).not.toBeNull()
+      expect(panel!.x).toBeGreaterThanOrEqual(0)
+      expect(panel!.x + panel!.width).toBeLessThanOrEqual(width)
+      expect(panel!.y + panel!.height).toBeLessThanOrEqual(900)
+      await page.screenshot({ path: `/tmp/zenwit-approval-${width}.png` })
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 })
     // The one assertion this scenario cannot give up: the model asking to run is
     // NOT the plugin running. Until a person answers, the browser half has not
     // been fetched, evaluated, or mounted anywhere on this page.
@@ -207,7 +220,7 @@ describe('web e2e: Cordis tools use their owned cards', () => {
       { timeout: 10_000 },
     ).toBe(0)
     await page.mouse.move(0, 0)
-    const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
+    const snapshot = await captureStableAria(page, '[data-conversation-scroll]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
   })
 

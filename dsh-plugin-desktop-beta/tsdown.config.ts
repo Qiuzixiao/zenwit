@@ -9,6 +9,7 @@ export default defineConfig([
       index: 'src/index.ts',
       'module-resolution': 'src/module-resolution.ts',
       webserver: 'src/webserver.ts',
+      workspace: 'src/workspace.ts',
       profile: 'src/profile.ts',
       'profile-manager': 'src/profile-manager.ts',
       'profile-service': 'src/profile-service.ts',

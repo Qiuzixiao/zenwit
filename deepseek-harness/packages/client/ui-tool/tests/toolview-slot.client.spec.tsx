@@ -65,7 +65,7 @@ async function bench(nodes: ToolResultNode[]) {
   const layout = { openDetails: vi.fn(), closeDetails: vi.fn() }
   runtime.ctx.provide('layout', layout)
   const sidebarRight = { openResource: vi.fn<(address: string) => void>() }
-  runtime.ctx.provide('sidebarRight', sidebarRight as never)
+  runtime.ctx.provide('workbenchFiles', { openFile: sidebarRight.openResource } as never)
   runtime.ctx.provide('uiWorkspace', {
     openWorkspace: vi.fn(async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
       beforeOpen(SID)
@@ -137,7 +137,7 @@ describe('keyed toolview hole through the real machinery', () => {
     const view = b.runtime.renderRoot()
     view.getByText('src/a.ts').click()
     await vi.waitFor(() => {
-      expect(b.sidebarRight.openResource).toHaveBeenCalledWith('dsh-resource://file/session/s1/src/a.ts')
+      expect(b.sidebarRight.openResource).toHaveBeenCalledWith('src/a.ts')
     })
     // Nothing on this path reaches the local machine any more.
     expect(b.openWorkspacePath).not.toHaveBeenCalled()
@@ -215,7 +215,7 @@ describe('registrant declaration injection', () => {
     })
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     runtime.ctx.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-    runtime.ctx.provide('sidebarRight', { openResource: vi.fn() } as never)
+    runtime.ctx.provide('workbenchFiles', { openFile: vi.fn() } as never)
     runtime.ctx.provide('uiWorkspace', {
       openWorkspace: vi.fn(async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
         beforeOpen(SID)

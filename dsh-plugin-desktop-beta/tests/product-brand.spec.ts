@@ -18,9 +18,8 @@ it('registers branding only through declaration-aware slots', () => {
   expect(mark).toContain('class="hero"')
 })
 
-it('installs zenwit runtime copy and browser metadata from durable package patches', () => {
+it('installs zenwit runtime copy and browser metadata from the locally owned kernel', () => {
   const read = (name: string, file: string) => readFileSync(new URL(`../node_modules/@deepseek-ai/${name}/${file}`, import.meta.url), 'utf8')
-  expect(read('dsh-client-ui-layout', 'lib/client.js')).toContain('const productTitle = "zenwit"')
   const models = read('dsh-client-ui-settings-models', 'lib/client.js')
   expect(models).toContain('Welcome to zenwit')
   expect(models).not.toContain('DeepSeek Harness 0.1 remains')

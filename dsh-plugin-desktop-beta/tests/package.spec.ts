@@ -81,12 +81,12 @@ describe('published package surface', () => {
 
   it('runs desktop and community market typechecks from the root command', () => {
     expect(workspaceManifest.scripts?.typecheck)
-      .toBe('yarn workspace dsh-plugin-desktop typecheck && yarn workspace dsh-plugin-desktop-beta typecheck && yarn workspace dsh-community-market typecheck')
+      .toBe('yarn workspace zenwit-workspace typecheck && yarn workspace dsh-plugin-desktop typecheck && yarn workspace dsh-plugin-desktop-beta typecheck && yarn workspace dsh-community-market typecheck')
   })
 
   it('runs desktop and community market tests from the root command', () => {
     expect(workspaceManifest.scripts?.test)
-      .toBe('yarn workspace dsh-plugin-desktop test && yarn workspace dsh-plugin-desktop-beta test && yarn workspace dsh-community-market test')
+      .toBe('yarn workspace zenwit-workspace test && yarn workspace dsh-plugin-desktop test && yarn workspace dsh-plugin-desktop-beta test && yarn workspace dsh-community-market test')
   })
 
   it('registers both npm launcher names', () => {
@@ -960,13 +960,13 @@ describe('published package surface', () => {
     expect(manifest.scripts?.['verify:cli']).toBe('node scripts/verify-cli-runtime.mjs')
     expect(manifest.scripts?.check).toContain('yarn run verify:cli')
     expect(workspaceManifest.scripts?.['dist:mac:beta'])
-      .toBe('yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:mac')
+      .toBe('yarn workspace zenwit-workspace build && yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:mac')
     expect(workspaceManifest.scripts?.['dist:mac-smoke:beta'])
-      .toBe('yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:mac-smoke')
+      .toBe('yarn workspace zenwit-workspace build && yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:mac-smoke')
     expect(workspaceManifest.scripts?.['dist:win:beta'])
-      .toBe('yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:win')
+      .toBe('yarn workspace zenwit-workspace build && yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:win')
     expect(workspaceManifest.scripts?.['dist:win-portable:beta'])
-      .toBe('yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:win-portable')
+      .toBe('yarn workspace zenwit-workspace build && yarn aa:prepare-release && yarn workspace dsh-community-market build && yarn workspace dsh-plugin-desktop-beta dist:win-portable')
     expect(manifest.build?.afterPack).toBe('./scripts/verify-packaged-runtime.ts')
     expect(manifest.build?.afterAllArtifactBuild).toBe('./scripts/verify-electron-fuses.ts')
     expect(manifest.build?.mac).toEqual(expect.objectContaining({

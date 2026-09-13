@@ -262,7 +262,7 @@ try {
     throw new Error('assembled desktop profile is missing the update tray command')
   }
   if (process.platform !== 'linux'
-    && !trayItems.some(item => item.label() === 'Open DSH Terminal')) {
+    && !trayItems.some(item => item.label() === 'Open zenwit Terminal')) {
     throw new Error('assembled desktop profile is missing the terminal tray command')
   }
   const profileMenu = trayItems.find(item => item.label() === 'Profile: desktop')
@@ -341,7 +341,8 @@ try {
   for (const id of [
     'dsh-plugin-desktop',
     '@deepseek-ai/dsh-client-ui-conversation',
-    '@deepseek-ai/dsh-client-ui-sidebar',
+    '@deepseek-ai/dsh-client-ui-workbench',
+    '@deepseek-ai/dsh-client-ui-layout',
     '@deepseek-ai/dsh-client-ui-directory-picker-browse',
   ]) {
     if (!ids.has(id)) {
@@ -351,7 +352,6 @@ try {
     }
   }
   for (const id of [
-    '@deepseek-ai/dsh-client-ui-layout',
     '@deepseek-ai/dsh-client-ui-directory-picker-native',
   ]) {
     if (ids.has(id)) throw new Error(`assembled advanced Web graph unexpectedly includes ${id}`)

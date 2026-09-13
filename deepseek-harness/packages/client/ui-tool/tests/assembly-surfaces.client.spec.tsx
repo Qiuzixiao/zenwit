@@ -78,7 +78,7 @@ async function bench(nodes: ToolResultNode[]) {
   })
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   runtime.ctx.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-  runtime.ctx.provide('sidebarRight', { openResource: vi.fn() } as never)
+  runtime.ctx.provide('workbenchFiles', { openFile: vi.fn() } as never)
   runtime.ctx.provide('uiWorkspace', {
     openWorkspace: vi.fn(async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
       beforeOpen(SID)

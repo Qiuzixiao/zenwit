@@ -106,7 +106,7 @@ function DoubleCheckIcon() {
 export function CordisPanel({
   wide,
   useSessions, useInventory, useActiveRuns, useRunErrors, useLoaded, useRenderFailures,
-  onApprove, onDecline, onRun, onStop, onRemove, onRefresh, t,
+  onApprove, onDecline, onRun, onStop, onRemove, onRefresh, usePanelRequest, t,
 }: CordisPanelProps) {
   const inventory = useInventory(snapshot => snapshot)
   const activeRuns = useActiveRuns(snapshot => snapshot)
@@ -115,6 +115,8 @@ export function CordisPanel({
   const renderFailures = useRenderFailures(snapshot => snapshot)
   const current = useSessions(state => state.current)
   const [open, setOpen] = useState(false)
+  const panelRequest = usePanelRequest(value => value)
+  useEffect(() => { if (panelRequest > 0) setOpen(true) }, [panelRequest])
   const [selected, setSelected] = useState<Record<string, CordisDynamicPackageId>>({})
   const [pending, setPending] = useState<ReadonlySet<CordisDynamicPluginId>>(new Set())
   const [actionErrors, setActionErrors] = useState<ReadonlyMap<CordisDynamicPluginId, string>>(new Map())
@@ -129,7 +131,8 @@ export function CordisPanel({
     const place = (): void => {
       const rect = rootRef.current?.getBoundingClientRect()
       if (rect !== undefined) {
-        setAnchor({ left: rect.left, bottom: window.innerHeight - rect.top + 8 })
+        const width = Math.min(420, window.innerWidth - 24)
+        setAnchor({ left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)), bottom: window.innerHeight - rect.top + 8 })
       }
     }
     place()
@@ -175,8 +178,6 @@ export function CordisPanel({
     selectedPackageIdOf(view, selected),
     loaded,
   ) === 'running').length
-
-  if (all.length === 0) return null
 
   const runAction = async (pluginId: CordisDynamicPluginId, action: () => Promise<void | { ok: boolean; message?: string }>) => {
     if (pending.has(pluginId)) return
@@ -477,13 +478,11 @@ export function CordisPanel({
           aria-expanded={open}
           onClick={() => { setOpen(value => !value) }}
         >
-          <IconCordisPluginOutline14 size={wide ? 16 : 18} />
-          {wide && (
-            <>
-              <span className={css.badgeLabel}>{t('panel.trigger')}</span>
-              <span className={css.badgeCount}>{t('panel.runningCount', { count: running })}</span>
-            </>
-          )}
+          <span className={css.badgeMain}>
+            <IconCordisPluginOutline14 size={wide ? 16 : 18} />
+            {wide && <span className={css.badgeLabel}>{t('panel.trigger')}</span>}
+          </span>
+          {wide && <span className={css.badgeCount}>{t('panel.runningCount', { count: running })}</span>}
         </button>
       </div>
     </div>

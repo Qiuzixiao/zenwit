@@ -37,6 +37,7 @@
 }
 
 .card {
+  container-type: inline-size;
   box-sizing: border-box;
   position: relative; /* overlay anchor positioning context */
   display: flex;
@@ -235,14 +236,13 @@
   line-clamp: 2;
 }
 
-/* Toolbar: attach + Plan + Read-only on the left; model + send on the right
-   (figma Input_Bottom chrome). */
+/* The card controls row count; the toolbar controls compact child labels. */
 .row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   /* 2px moved from the bottom pad to the top: the whole control row sits 2px
      lower in the card (it read too high against the textarea) while the
      controls' own centering stays untouched. */
@@ -263,26 +263,32 @@
   min-width: 0;
 }
 
-/* figma 75:8208 drew 16 between + and the mode chips and 4 between Plan /
-   Read-only; both gaps settled on 12 so the pill chips read as separate
-   controls without drifting from the + control. */
 .tools {
-  gap: 12px;
+  gap: 8px;
 }
 
 .modes {
-  gap: 12px;
+  gap: 8px;
 }
 
 .trailing {
-  flex: none;
-  /* Wrap keeps the left mode chips and the right controls apart when the card
-     runs out of row width: the trailing group (model + send) moves to its own
-     line instead of the left group shrinking until its chip overlaps the
-     model trigger (external:107). The auto margin re-anchors it right on the
-     wrapped line; on a single line space-between already pins it right. */
-  margin-left: auto;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sendActions {
+  display: flex;
+  flex: 0 0 76px;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+@container (max-width: 400px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    --dsh-composer-model-margin-end: auto;
+  }
 }
 
 /* Attach circle (figma + control): 28px, selector fill, primary glyph. */

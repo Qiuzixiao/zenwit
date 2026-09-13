@@ -1,7 +1,6 @@
-/** Independent frame shared by compatibility and inverted-L extended modes. */
+/** Native chrome shared by compatibility and extended modes. */
 
 import {
-  EXTENDED_INNER_CORNER_RADIUS,
   DESKTOP_FRAME_HEIGHT,
   MACOS_TRAFFIC_LIGHT_SAFE_WIDTH,
   WINDOWS_CAPTION_CONTROLS_WIDTH,
@@ -33,60 +32,6 @@ body:is([data-dsh-desktop-mode="compatibility"], [data-dsh-desktop-mode="extende
   padding-top: 0;
   overflow: hidden;
   transform: translateZ(0);
-}
-/* The custom frame owns the top band. A shell overlay is the containing block
-   for fixed plugin surfaces, so they cannot escape into Desktop chrome. */
-body:is([data-dsh-desktop-mode="compatibility"], [data-dsh-desktop-mode="extended"])
-  [data-shell-overlay] {
-  overflow: hidden;
-  transform: translateZ(0);
-}
-/* Full-viewport dialogs portalled directly to body still belong to content. */
-body:is([data-dsh-desktop-mode="compatibility"], [data-dsh-desktop-mode="extended"])
-  > [role="presentation"]:has(> [aria-modal="true"]),
-body:is([data-dsh-desktop-mode="compatibility"], [data-dsh-desktop-mode="extended"])
-  > [aria-modal="true"] {
-  top: var(--dsh-desktop-frame-height) !important;
-  transform: translateZ(0);
-}
-body:is([data-dsh-desktop-mode="compatibility"], [data-dsh-desktop-mode="extended"])
-  [data-slot="sidebar.footer.action"] {
-  display: flex !important;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  width: 100%;
-  max-height: min(40vh, 240px);
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-body:is([data-dsh-desktop-mode="compatibility"], [data-dsh-desktop-mode="extended"])
-  [data-slot="sidebar.footer.action"] > * {
-  flex: none;
-  min-width: 0;
-}
-body[data-dsh-desktop-mode="extended"] .dshDesktopSidebarSurface {
-  --dsw-specific-sidebar-fill: transparent;
-  border-right-color: transparent;
-  background: transparent !important;
-}
-body[data-dsh-desktop-mode="extended"] .dshDesktopFrame {
-  background: var(--dsh-desktop-frame-fill);
-}
-body[data-dsh-desktop-mode="extended"] .dshDesktopConversationSurface {
-  box-sizing: border-box;
-  overflow: hidden;
-  border-top: 1px solid var(--dsw-alias-border-l1);
-  border-left: 1px solid var(--dsw-alias-border-l1);
-  border-top-left-radius: ${EXTENDED_INNER_CORNER_RADIUS}px;
-  background: var(--dsw-alias-bg-base);
-  background-clip: padding-box;
-}
-body[data-dsh-desktop-mode="extended"] .dshDesktopDetailsSurface {
-  box-sizing: border-box;
-  border-top: 1px solid var(--dsw-alias-border-l1);
 }
 body:is([data-dsh-desktop-mode="compatibility"], [data-dsh-desktop-mode="extended"])
   [data-dsh-desktop-content-viewport],

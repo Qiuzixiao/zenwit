@@ -27,7 +27,7 @@ import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowInjected } from './settings/EnterBehaviorRow.tsx'
-import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
+import { WorkbenchConversation } from './skeleton/WorkbenchConversation.tsx'
 import { ConversationPanel } from './skeleton/ConversationPanel.tsx'
 import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
 import { InputBar } from './skeleton/InputBar.tsx'
@@ -86,10 +86,6 @@ const ABSENT_FILE_UPLOADS = {
 
 interface WorkspaceNavigation {
   openSession(sessionId: SessionId): void
-  openWorkspace(
-    workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0],
-    beforeOpen: (sessionId: SessionId) => void,
-  ): Promise<void>
 }
 
 /** Resolve the session-scoped Conversation action face, failing loud. */
@@ -216,7 +212,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     },
   })
 
-  const registerConversationRoot = () => slots.register({
+  const registerWorkbenchConversation = () => slots.register({
     name: 'main.conversation',
     locale: NS,
     children: {
@@ -225,37 +221,14 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.composer': { kind: 'chain', scope: 'session' },
       'conversation.composer.bar': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.dock': { kind: 'list', scope: 'session' },
-      'conversation.hero.brand.mark': { kind: 'single', scope: 'root' },
-      'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       'conversation.hero.agentPreset': { kind: 'single', scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
       hooks: {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
       },
-      selectWorkspace: workspaceId => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
-        if (sessionId !== undefined && nextId !== sessionId) {
-          const from = inputHub.shell(sessionId)
-          const draft = from.snapshot.draft
-          const attachmentIds = from.snapshot.attachmentIds
-          const next = inputHub.shell(nextId)
-          if (attachmentIds.length === 0 || next.addAttachments(attachmentIds)) {
-            if (sessions.binding(nextId) === undefined) {
-              throw new Error(`ui-conversation: session "${nextId}" resolved no binding`)
-            }
-            concreteConversation(ctx).rebindDraftFiles(nextId, attachmentIds)
-            if (draft !== '') {
-              next.setDraft(draft)
-              from.setDraft('')
-            }
-            if (attachmentIds.length > 0) {
-              for (const id of attachmentIds) from.removeAttachment(id)
-            }
-          }
-        }
-      }),
     }),
-  }, ConversationRoot)
+  }, WorkbenchConversation)
 
   const registerConversationSession = () => slots.register({
     name: 'conversation.session',
@@ -391,7 +364,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       key: 'conversation',
       children: { 'main.conversation': { kind: 'single', scope: 'session-maybe' } },
     }, ConversationPanel)
-    yield registerConversationRoot()
+    yield registerWorkbenchConversation()
     yield registerConversationSession()
     yield registerConversationHeader()
     yield registerComposerBar()

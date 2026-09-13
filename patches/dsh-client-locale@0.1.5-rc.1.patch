@@ -1,9 +1,0 @@
-diff --git a/lib/client.js b/lib/client.js
---- a/lib/client.js
-+++ b/lib/client.js
-@@ -846,1 +846,1 @@
--			"brand.localBuild": "DSH 本地构建",
-+			"brand.localBuild": "zenwit",
-@@ -890,1 +890,1 @@
--			"brand.localBuild": "DSH Local Build",
-+			"brand.localBuild": "zenwit",

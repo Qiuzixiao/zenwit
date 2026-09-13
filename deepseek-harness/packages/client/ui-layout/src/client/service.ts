@@ -6,7 +6,7 @@
  * (its only consumer). What remains here is the contract other plugins'
  * apply worlds reach for panel transitions (main-panel selection and sidebar toggle,
  * right-panel show/hide from ui-sidebar-right) — writes stay inside the
- * store's declared action set, shared with the root registration.
+ * service-owned store's action set.
  */
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { Branded } from '@deepseek-ai/dsh-brand'
@@ -56,7 +56,7 @@ export class LayoutController implements ILayout {
   private navigation = new AbortController()
 
   /**
-   * @param panels - actions of the instance shared with the root entry.
+   * @param panels - actions of the service-owned layout instance.
    * @param hasMainPanel - checks the live main-slot registry for a panel id.
    */
   constructor(

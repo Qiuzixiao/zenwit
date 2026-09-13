@@ -1,6 +1,6 @@
 /**
- * Root-owned frame measurement, panel preferences, and presentation reports.
- * The registration supplies a fresh store and binds its actions to ctx.layout.
+ * Service-owned panel preferences and presentation reports.
+ * The layout provider creates the store and binds its actions to ctx.layout.
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { MainPanelId } from './service.ts'

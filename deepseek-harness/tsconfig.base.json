@@ -28,6 +28,8 @@
     // not declaration path aliases, keep each package/vendor source compiled
     // under its own tsconfig boundary.
     "paths": {
+      "@deepseek-ai/dsh-client-ui-workbench": ["./packages/client/ui-workbench/src"],
+      "@deepseek-ai/dsh-client-ui-workbench/client": ["./packages/client/ui-workbench/src/client"],
       "@deepseek-ai/cordis": ["./vendor/cordis/src"],
       "@deepseek-ai/cosmokit": ["./vendor/cosmokit/src"],
       "@deepseek-ai/schemastery": ["./vendor/schemastery/src"],
@@ -157,17 +159,11 @@
       "@deepseek-ai/dsh-client-ui-attachment": ["./packages/client/ui-attachment/src"],
       "@deepseek-ai/dsh-client-ui-primitives": ["./packages/client/ui-primitives/src"],
       "@deepseek-ai/dsh-client-ui-dockkit": ["./packages/client/ui-dockkit/src"],
-      "@deepseek-ai/dsh-client-ui-sidebar-right": ["./packages/client/ui-sidebar-right/src"],
-      "@deepseek-ai/dsh-client-ui-sidebar-right/client": ["./packages/client/ui-sidebar-right/src/client"],
-      "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": ["./packages/client/ui-sidebar-documentpreview/src"],
-      "@deepseek-ai/dsh-client-ui-sidebar-documentpreview/client": ["./packages/client/ui-sidebar-documentpreview/src/client"],
       "@deepseek-ai/dsh-api-workspace-files": ["./packages/api/workspace-files/src"],
       "@deepseek-ai/dsh-api-workspace-files/types": ["./packages/api/workspace-files/src/types.ts"],
       "@deepseek-ai/dsh-api-workspace-files/client": ["./packages/api/workspace-files/src/client/index.ts"],
       "@deepseek-ai/dsh-client-resources": ["./packages/client/resources/src"],
       "@deepseek-ai/dsh-client-resources/client": ["./packages/client/resources/src/client"],
-      "@deepseek-ai/dsh-client-ui-sidebar-files": ["./packages/client/ui-sidebar-files/src"],
-      "@deepseek-ai/dsh-client-ui-sidebar-files/client": ["./packages/client/ui-sidebar-files/src/client"],
       "@deepseek-ai/dsh-client-store": ["./packages/client/store/src/index.ts"],
       "@deepseek-ai/dsh-client-ui-renderer": ["./packages/client/ui-renderer/src"],
       "@deepseek-ai/dsh-client-ui-renderer/client": ["./packages/client/ui-renderer/src/client"],

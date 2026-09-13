@@ -12,7 +12,6 @@ import {
   type ConversationSessionHeaderInjected, type ConversationSessionInjected, type ViewTab,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { createConversationStore } from '../src/client/stores.ts'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 
@@ -48,13 +47,7 @@ async function bench() {
     return upload(...args)
   }
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
-  const connectWorkspace = vi.fn(async () => ROOT)
   runtime.ctx.provide('uiWorkspace', {
-    openWorkspace: async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
-      const id = await connectWorkspace()
-      beforeOpen(id)
-      runtime.sessions.open(id)
-    },
     openSession: (id: SessionId) => { runtime.sessions.open(id) },
   } as never)
   const sessionFake = sessionFakeFor()
@@ -108,7 +101,7 @@ async function bench() {
     conversationApi(id).injected.hooks.conversationViews
   return {
     runtime, feature, slots: runtime.slots, entryOf, conversationApi, headerApi, residentApi, composerApi,
-    inputApi, viewSource, sessionFake, connectWorkspace, rootUpload, uploads,
+    inputApi, viewSource, sessionFake,
   }
 }
 
@@ -281,52 +274,18 @@ describe('Conversation inject API', () => {
     await b.runtime.dispose()
   })
 
-  it('moves a draft only when Workspace navigation changes Session', async () => {
+  it('injects session-specific composer blocking without workspace navigation', async () => {
     const b = await bench()
     const resident = b.residentApi(ROOT)
-    const { state, actions } = b.inputApi(ROOT)
-    actions.setDraft('carry me')
-    expect(b.composerApi(ROOT).addFiles?.([
-      new File([Uint8Array.of(1)], 'draft.pdf', { type: 'application/pdf' }),
-    ])).toBeNull()
-    await vi.waitFor(() => { expect(b.rootUpload).toHaveBeenCalledOnce() })
-
-    b.connectWorkspace.mockResolvedValueOnce(ROOT)
-    await resident.selectWorkspace('workspace-1' as WorkspaceId)
-    expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [ROOT] })
-    expect(state.getSnapshot().draft).toBe('carry me')
-
-    const other = 'other-1' as SessionId
-    const targetUpload = vi.fn(() => Promise.resolve({
-      ok: true,
-      value: {
-        receiptId: 'target-receipt' as never,
-        file: { attachmentId: 'target-file' as never, name: 'draft.pdf', bytes: 1 },
-      },
-    }))
-    b.uploads.set(other, targetUpload)
-    await b.runtime.sessions.add({ id: other, session: {} }, { current: false })
-    b.connectWorkspace.mockResolvedValueOnce(other)
-    await resident.selectWorkspace('workspace-2' as WorkspaceId)
-    expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [other] })
-    expect(state.getSnapshot().draft).toBe('')
-    expect(b.inputApi(other).state.getSnapshot().draft).toBe('carry me')
-    await vi.waitFor(() => { expect(targetUpload).toHaveBeenCalledOnce() })
-    expect(b.inputApi(other).state.getSnapshot().attachmentIds).toHaveLength(1)
-    await b.runtime.dispose()
-  })
-
-  it('supports no-Session navigation and propagates Workspace connection failure', async () => {
-    const b = await bench()
-    b.connectWorkspace.mockResolvedValueOnce(ROOT)
-    await b.residentApi(undefined).selectWorkspace('workspace-0' as WorkspaceId)
-    expect(b.runtime.sessions.calls).toContainEqual({ method: 'open', args: [ROOT] })
-
-    const opens = b.runtime.sessions.calls.filter(call => call.method === 'open').length
-    b.connectWorkspace.mockRejectedValueOnce(new Error('offline'))
-    await expect(b.residentApi(ROOT).selectWorkspace('workspace-4' as WorkspaceId))
-      .rejects.toThrow('offline')
-    expect(b.runtime.sessions.calls.filter(call => call.method === 'open')).toHaveLength(opens)
+    const absent = b.residentApi(undefined)
+    expect(Object.keys(resident)).toEqual(['hooks'])
+    expect(absent.hooks.composerBlock.getSnapshot()).toBeUndefined()
+    const block = { reason: 'Choose a model' }
+    b.runtime.ctx.conversation.blocks.set(ROOT, block)
+    expect(resident.hooks.composerBlock.getSnapshot()).toEqual(block)
+    expect(absent.hooks.composerBlock.getSnapshot()).toBeUndefined()
+    b.runtime.ctx.conversation.blocks.set(ROOT, undefined)
+    expect(resident.hooks.composerBlock.getSnapshot()).toBeUndefined()
     await b.runtime.dispose()
   })
 

@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-sidebar",
-  "description": "Sidebar plugin: session multi-level tree, search, grouping, state dots",
+  "description": "Sidebar extension contracts for the workbench",
   "version": "0.1.5-rc.1",
   "publishConfig": {
     "access": "public"
@@ -27,14 +27,7 @@
   },
   "dsh": {
     "client": {
-      "inject": [
-        "@deepseek-ai/dsh-api-workspace-controller",
-        "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-session",
-        "@deepseek-ai/dsh-client-ui-workspace",
-        "@deepseek-ai/dsh-client-locale"
-      ],
+      "inject": [],
       "platform": "web"
     }
   },

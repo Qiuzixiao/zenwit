@@ -20,7 +20,7 @@ test('locally packed runtimes retain integrity checks without claiming an upstre
     commit: 'original-upstream-commit',
   }]))
   json('upstream.json', { repository: 'https://example.com/original.git', activeChannel: 'beta', channels })
-  json('package.json', {})
+  json('package.json', { resolutions: { '@deepseek-ai/dsh-retired-ui@npm:1.0.0': 'file:retired.tgz' } })
   for (const name of ['dsh-plugin-desktop', 'dsh-plugin-desktop-beta', 'dsh-community-market']) {
     json(`${name}/package.json`, { dependencies: { '@deepseek-ai/dsh': '1.0.0' } })
   }
@@ -33,6 +33,7 @@ test('locally packed runtimes retain integrity checks without claiming an upstre
   for (const channel of ['stable', 'beta']) {
     execFileSync(process.execPath, [script, '--write', '--channel', channel])
   }
+  assert.equal(JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).resolutions['@deepseek-ai/dsh-retired-ui@npm:1.0.0'], undefined)
   const manifest = JSON.parse(readFileSync(resolve(root, 'vendor/dsh-runtime/1.0.0/manifest.json'), 'utf8'))
   assert.equal(manifest.source, 'local')
   assert.equal(manifest.commit, undefined)

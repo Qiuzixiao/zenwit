@@ -1,6 +1,7 @@
 /** Workspace archive and directory UI capability. */
 
 import { Service, type Context } from '@deepseek-ai/cordis'
+import { createSnapshotStore, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { ClientRemote, DirectoryListing, RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import type {
   ISessions,
@@ -13,7 +14,22 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
+export interface WorkspacePendingAction {
+  key: string
+  sessionId: SessionId
+  label: string
+  open(): void
+}
+
 export interface UiWorkspace {
+  /** Explicit foreground navigation; background list updates do not publish here. */
+  readonly navigation: ObservableSnapshot<number>
+  /** Protect an editor before navigating to another project. Returns its disposer. */
+  guardNavigation(guard: (cwd: string | undefined) => boolean | Promise<boolean>): () => void
+  /** Pending actions published by features that own their approval lifecycle. */
+  readonly pendingActions: ObservableSnapshot<readonly WorkspacePendingAction[]>
+  /** Register a live pending-action source and return its disposer. */
+  registerPendingSource(source: ObservableSnapshot<readonly WorkspacePendingAction[]>): () => void
   /**
    * Select a Session and show its Conversation as one UI navigation action.
    * @param sessionId - listed or retained Session to display.
@@ -88,6 +104,10 @@ export class DirectoryBrowseError extends Error {
 
 /** Implements Workspace archive and directory UI operations. */
 class UiWorkspaceService extends Service implements UiWorkspace {
+  readonly navigation = createSnapshotStore(0)
+  readonly pendingActions = createSnapshotStore<readonly WorkspacePendingAction[]>([])
+  private readonly pendingSources = new Set<ObservableSnapshot<readonly WorkspacePendingAction[]>>()
+  private guard: ((cwd: string | undefined) => boolean | Promise<boolean>) | undefined
   private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>()
   private readonly lifetime = new AbortController()
 
@@ -132,8 +152,30 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   openSession(sessionId: SessionId): void {
-    this.sessions.open(sessionId)
-    this.ctx.layout.selectPanel(null)
+    if (this.workspaces.list.getSnapshot().archivedSessionIds.includes(sessionId)) return
+    const signal = this.ctx.layout.beginNavigation()
+    const open = (): void => {
+      if (signal.aborted || this.lifetime.signal.aborted) return
+      this.sessions.open(sessionId)
+      this.ctx.layout.selectPanel(null)
+      this.navigation.set(this.navigation.getSnapshot() + 1)
+    }
+    const allowed = this.guard?.(this.sessions.list.getSnapshot().byId[sessionId]?.cwd) ?? true
+    if (typeof allowed === 'boolean') { if (allowed) open() }
+    else void allowed.then(ok => { if (ok) open() }).catch(reason => { console.warn('session navigation failed:', reason) })
+  }
+
+  guardNavigation(guard: (cwd: string | undefined) => boolean | Promise<boolean>): () => void {
+    this.guard = guard
+    return () => { if (this.guard === guard) this.guard = undefined }
+  }
+
+  registerPendingSource(source: ObservableSnapshot<readonly WorkspacePendingAction[]>): () => void {
+    this.pendingSources.add(source)
+    const update = (): void => { this.pendingActions.set([...this.pendingSources].flatMap(item => [...item.getSnapshot()])) }
+    const off = source.subscribe(update)
+    update()
+    return () => { off(); this.pendingSources.delete(source); update() }
   }
 
   async openWorkspace(workspaceId: WorkspaceId, beforeOpen?: (sessionId: SessionId) => void): Promise<void> {

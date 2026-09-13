@@ -218,6 +218,38 @@ async function flush(): Promise<void> {
 }
 
 describe('UiWorkspaceService', () => {
+  it('waits for editor consent, ignores superseded navigation, and never opens archived sessions', async () => {
+    const b = bench({ sessions: sessionState([summary('one', { cwd: '/one' }), summary('two', { cwd: '/two' })], sid('one')), workspaces: workspaceState([], [sid('archived')]) })
+    let resolveFirst: (allow: boolean) => void = () => {}
+    const guard = vi.fn().mockImplementationOnce(() => new Promise<boolean>(resolve => { resolveFirst = resolve })).mockReturnValue(true)
+    const off = b.uiWorkspace.guardNavigation(guard)
+    b.uiWorkspace.openSession(sid('two'))
+    expect(b.sessions.open).not.toHaveBeenCalled()
+    b.uiWorkspace.openSession(sid('one'))
+    resolveFirst(true)
+    await flush()
+    expect(b.sessions.open).toHaveBeenCalledExactlyOnceWith(sid('one'))
+    expect(b.uiWorkspace.navigation.getSnapshot()).toBe(1)
+    b.uiWorkspace.openSession(sid('archived'))
+    expect(b.sessions.open).toHaveBeenCalledOnce()
+    off()
+    b.uiWorkspace.openSession(sid('two'))
+    expect(b.uiWorkspace.navigation.getSnapshot()).toBe(2)
+  })
+
+  it('updates and retires feature-owned pending actions without settling them', () => {
+    const b = bench()
+    const action = { key: 'approval', sessionId: sid('one'), label: 'Plugin', open: vi.fn() }
+    const source = new MutableSource([action])
+    const off = b.uiWorkspace.registerPendingSource(source)
+    expect(b.uiWorkspace.pendingActions.getSnapshot()).toEqual([action])
+    source.set([])
+    expect(b.uiWorkspace.pendingActions.getSnapshot()).toEqual([])
+    source.set([action])
+    off()
+    expect(b.uiWorkspace.pendingActions.getSnapshot()).toEqual([])
+    expect(action.open).not.toHaveBeenCalled()
+  })
   it('selects a Session before revealing its Conversation, including the current Session', () => {
     const current = sid('current')
     const b = bench({ sessions: sessionState([summary('current')], current) })

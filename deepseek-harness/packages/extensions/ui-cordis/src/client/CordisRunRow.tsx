@@ -34,7 +34,7 @@ const READING_LABELS = {
 /** Render one activation result and, when eligible, its Package-owned view. */
 export function CordisRunRow({
   callId, block, inspect, renderSlot, useInventory, useLoaded, useRunCards, useActiveRuns,
-  onObserveRunCard, t,
+  onObserveRunCard, onOpenPanel, t,
 }: CordisRunRowProps) {
   const card = cordisRunCard(block)
   const inventory = useInventory(snapshot => snapshot)
@@ -104,6 +104,7 @@ export function CordisRunRow({
         <span className={css.separator} aria-hidden />
         <span className={card.errorSummary === null ? css.summary : css.error}>{summary}</span>
         <span className={css.status}>{status}</span>
+        {awaitingApproval && <button type="button" className={css.inspect} onClick={onOpenPanel} aria-label={t('action.reviewApproval')} title={t('action.reviewApproval')}><IconInspectOutline12 /></button>}
         {inspect !== undefined && (
           <button type="button" className={css.inspect} aria-label={t('action.inspect')} onClick={inspect}>
             <IconInspectOutline12 />

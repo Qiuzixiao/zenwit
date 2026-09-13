@@ -1,5 +1,4 @@
-# Desktop Host operations compose around the existing Web bundle. Compatibility
-# mode keeps upstream ownership of the browser carrier and rendered UI.
+# Desktop Host operations compose with the sole Zenwit workbench and its file service.
 - insert:
     - id: desktop-shell
       name: dsh-plugin-desktop
@@ -18,6 +17,8 @@
       name: dsh-plugin-desktop/profiles
     - id: desktop-updates
       name: dsh-plugin-desktop/updates
+    - id: zenwit-workspace
+      name: dsh-plugin-desktop/workspace
 
 # A desktop launch has no terminal operator waiting for the Web readiness line.
 - id: web-runtime

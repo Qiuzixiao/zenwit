@@ -430,6 +430,9 @@ virtualStoreDirMaxLength: 60
     ))).toBe(false)
     expect(readFileSync(prepared.rootConfig, 'utf8')).toBe('[]\n')
     expect(prepared.homeDir).toBe(home)
+    expect(composeEntries([prepared.patches]).filter(row => row.id === 'zenwit-workspace')).toEqual([
+      expect.objectContaining({ name: 'dsh-plugin-desktop-beta/workspace', config: expect.objectContaining({ homeDir: home }) }),
+    ])
     expect(fileURLToPath(prepared.bareModuleBaseUrl)).toBe(join(prepared.profile.dir, 'package.json'))
     expect(prepared.mode).toBe('compatibility')
     expect(prepared.openBrowser).toBe(false)
@@ -440,7 +443,6 @@ virtualStoreDirMaxLength: 60
     const rows = composeEntries([prepared.patches])
     for (const [id, name] of [
       ['ui-layout', '@deepseek-ai/dsh-client-ui-layout'],
-      ['ui-sidebar', '@deepseek-ai/dsh-client-ui-sidebar'],
       ['ui-conversation', '@deepseek-ai/dsh-client-ui-conversation'],
     ] as const) {
       const matching = rows.filter(row => row.id === id)
@@ -693,7 +695,7 @@ virtualStoreDirMaxLength: 60
   })
 
 
-  it('boots a selected Web profile without overriding its compatibility UI rows', () => {
+  it.each(['compatibility', 'advanced', 'extended'])('boots a selected Web profile without overriding its UI rows in %s mode', mode => {
     const home = temporaryHome()
     const webDir = join(home, 'profiles', 'web')
     const template = PROFILE_TEMPLATES.web
@@ -703,12 +705,16 @@ virtualStoreDirMaxLength: 60
       '- id: ui-layout',
       "  name: '@deepseek-ai/dsh-client-ui-layout'",
       '  disabled: true',
+      '- id: ui-conversation',
+      "  name: '@deepseek-ai/dsh-client-ui-conversation'",
+      '  disabled: true',
       '- insert:',
       '    - id: third-party-layout',
       "      name: 'third-party-layout'",
       '',
     ].join('\n'))
 
+    writeFileSync(join(home, 'settings.yaml'), `dsh-desktop:\n  mode: ${mode}\n`)
     const prepared = prepareDesktopProfile(undefined, home, 'darwin', 'web')
     const rows = composeEntries([prepared.patches])
 
@@ -717,13 +723,14 @@ virtualStoreDirMaxLength: 60
       name: '@deepseek-ai/dsh-client-ui-layout',
       disabled: true,
     }))
+    expect(rows.find(row => row.id === 'ui-conversation')).toMatchObject({ name: '@deepseek-ai/dsh-client-ui-conversation', disabled: true })
     expect(rows.find(row => row.id === 'third-party-layout')).toEqual({
       id: 'third-party-layout',
       name: 'third-party-layout',
     })
     expect(rows.find(row => row.id === 'desktop-shell')).toEqual(expect.objectContaining({
       name: 'dsh-plugin-desktop-beta',
-      config: expect.objectContaining({ mode: 'compatibility' }),
+      config: expect.objectContaining({ mode }),
     }))
   })
 
@@ -763,9 +770,8 @@ virtualStoreDirMaxLength: 60
     expect(rows.find(row => row.id === 'settings')).toEqual(expect.objectContaining({
       config: expect.objectContaining({ dshHome: home }),
     }))
-    expect(rows.find(row => row.id === 'ui-layout')?.disabled).toBe(true)
-    expect(rows.find(row => row.id === 'ui-sidebar')?.disabled).toBe(false)
-    expect(rows.find(row => row.id === 'ui-conversation')?.disabled).toBe(false)
+    expect(rows.find(row => row.id === 'ui-layout')?.disabled).toBeFalsy()
+    expect(prepared.patches.some(row => ['ui-layout', 'ui-sidebar', 'ui-conversation'].includes(row.id ?? '') && 'disabled' in row)).toBe(false)
   })
 
   it('keeps legacy browser intent but clamps LAN exposure when compatibility mode is selected', () => {
@@ -795,7 +801,7 @@ virtualStoreDirMaxLength: 60
     }))
   })
 
-  it('replaces the official root layout for extended window mode while retaining its occupants', () => {
+  it('retains the kernel layout service for extended window mode', () => {
     const home = temporaryHome()
     writeFileSync(join(home, 'settings.yaml'), [
       'dsh-desktop:',
@@ -813,9 +819,8 @@ virtualStoreDirMaxLength: 60
       macosMaterial: 'off',
       windowsMaterial: 'mica',
     }))
-    expect(rows.find(row => row.id === 'ui-layout')?.disabled).toBe(true)
-    expect(rows.find(row => row.id === 'ui-sidebar')?.disabled).toBe(false)
-    expect(rows.find(row => row.id === 'ui-conversation')?.disabled).toBe(false)
+    expect(rows.find(row => row.id === 'ui-layout')?.disabled).toBeFalsy()
+    expect(prepared.patches.some(row => ['ui-layout', 'ui-sidebar', 'ui-conversation'].includes(row.id ?? '') && 'disabled' in row)).toBe(false)
     expect(rows.find(row => row.id === 'desktop-shell')).toEqual(expect.objectContaining({
       config: expect.objectContaining({
         mode: 'extended',

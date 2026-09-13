@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 
 const HASH_PATTERN = /^[0-9a-f]{40}$/u
@@ -84,10 +84,11 @@ export function verifyBilingualRecords({ root, recordPaths, readText, hashDocume
 }
 
 export function verifyTrackedBilingualRecords(root) {
-  const recordPaths = runGit(root, ['ls-files', '-z', '--', '*.i18n.yaml'])
+  const recordPaths = runGit(root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '*.i18n.yaml'])
     .split('\0')
     .filter(Boolean)
     .map(normalizePath)
+    .filter(path => existsSync(resolve(root, path)))
   return verifyBilingualRecords({
     root,
     recordPaths,

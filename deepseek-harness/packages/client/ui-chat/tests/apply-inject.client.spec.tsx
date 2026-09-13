@@ -51,8 +51,8 @@ async function bench() {
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   const layout = { closeRightbar: vi.fn(), openRightbar: vi.fn() }
   runtime.ctx.provide('layout', layout as never)
-  const sidebarRight = { openResource: vi.fn<(address: string) => void>() }
-  runtime.ctx.provide('sidebarRight', sidebarRight as never)
+  const workbenchFiles = { openFile: vi.fn<(address: string) => void>() }
+  runtime.ctx.provide('workbenchFiles', workbenchFiles as never)
   const openWorkspacePath = vi.fn<ClientRemote['session']['openWorkspacePath']>(
     () => Promise.resolve({ ok: true, value: { opened: true } }),
   )
@@ -89,7 +89,7 @@ async function bench() {
     ) => ChatViewInjected)(id, instance.actions)
     return { instance, injected }
   }
-  return { runtime, layout, openWorkspacePath, sidebarRight, session, chatViewApi }
+  return { runtime, layout, openWorkspacePath, workbenchFiles, session, chatViewApi }
 }
 
 describe('Chat inject API', () => {
@@ -118,30 +118,29 @@ describe('Chat inject API', () => {
     await b.runtime.dispose()
   })
 
-  it('addresses file paths under the Session\'s scope and opens them in the right Sidebar', async () => {
+  it('delegates local paths and line navigation to the workbench editor', async () => {
     const b = await bench()
     const { injected } = b.chatViewApi(ROOT)
     await injected.openFile('src/a.ts')
-    // Files stay in the product: a relative path is handed to the Sidebar as an
-    // address under this session's scope, not to a desktop opener.
-    expect(b.sidebarRight.openResource).toHaveBeenCalledWith('dsh-resource://file/session/root-1/src/a.ts')
+    // The editor owns path resolution and containment.
+    expect(b.workbenchFiles.openFile).toHaveBeenCalledWith('src/a.ts')
     expect(b.openWorkspacePath).not.toHaveBeenCalled()
 
-    // An absolute path inside the session's workspace is the same session-relative address.
+    // Preserve absolute paths for the editor resolver.
     await injected.openFile('/proj/src/a.ts')
-    expect(b.sidebarRight.openResource).toHaveBeenLastCalledWith('dsh-resource://file/session/root-1/src/a.ts')
+    expect(b.workbenchFiles.openFile).toHaveBeenLastCalledWith('/proj/src/a.ts')
 
     // A name a URL would otherwise mangle survives the round trip.
     await injected.openFile('src/a b#c.ts')
-    expect(b.sidebarRight.openResource).toHaveBeenLastCalledWith('dsh-resource://file/session/root-1/src/a%20b%23c.ts')
+    expect(b.workbenchFiles.openFile).toHaveBeenLastCalledWith('src/a b#c.ts')
 
-    // A line travels as the `file` type's navigation parameter, not in the address.
+    // Line navigation is independent of the filename.
     await injected.openFile('src/a.ts', { line: 7 })
-    expect(b.sidebarRight.openResource).toHaveBeenLastCalledWith('dsh-resource://file/session/root-1/src/a.ts', { params: { line: 7 } })
+    expect(b.workbenchFiles.openFile).toHaveBeenLastCalledWith('src/a.ts', 7)
     await b.runtime.dispose()
   })
 
-  it('keeps a relative path under the Session without a cwd, and addresses a path outside the workspace absolutely', async () => {
+  it('preserves local path spelling for workbench validation', async () => {
     const b = await bench()
     const NO_CWD = 'root-2' as SessionId
     await b.runtime.sessions.add({
@@ -150,13 +149,12 @@ describe('Chat inject API', () => {
       session: sessionFakeFor(),
     }, { current: false })
     const { injected } = b.chatViewApi(NO_CWD)
-    // The Host resolves the relative path against the root it holds for the
-    // Session; the Client need not know it.
+    // The editor decides whether the path belongs to the active project.
     await injected.openFile('src/a.ts')
-    expect(b.sidebarRight.openResource).toHaveBeenCalledWith('dsh-resource://file/session/root-2/src/a.ts')
-    // An absolute path outside every known root still names its Session.
+    expect(b.workbenchFiles.openFile).toHaveBeenCalledWith('src/a.ts')
+    // Absolute paths are preserved without URI rewriting.
     await injected.openFile('/abs/a.ts')
-    expect(b.sidebarRight.openResource).toHaveBeenLastCalledWith('dsh-resource://file/session/root-2//abs/a.ts')
+    expect(b.workbenchFiles.openFile).toHaveBeenLastCalledWith('/abs/a.ts')
     await b.runtime.dispose()
   })
 

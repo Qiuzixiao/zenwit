@@ -385,6 +385,8 @@ Choose the `cordis_run` mode as follows:
 
 An unauthorized Client Package returns `awaiting-approval`. A single check mark authorizes only the current Package; double check marks authorize future versions of the same Plugin. A grant remains after a technical runtime failure. An authorized Package returns `starting` and completes asynchronously in the browser.
 
+Approval decisions live in the workbench Plugin panel. The pending Run card's review action and the workbench attention list open that same panel. Do not claim that the Run card itself has approval check marks. If controls are missing, inspect the current Slot tree and UI registration; replacing a pending request does not restore a missing surface.
+
 After a technical failure:
 
 1. Use `cordis_inspect_self(pluginId, packageId)` to read the failed version's source and exact diagnostics.

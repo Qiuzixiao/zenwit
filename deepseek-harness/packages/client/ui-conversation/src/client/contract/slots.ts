@@ -259,8 +259,6 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 
 /** Business callbacks injected into the resident Conversation shell. */
 export interface ConversationInjected {
-  /** Connect and open a blank Session in the selected Workspace. */
-  selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
   hooks: { composerBlock: ObservableSnapshot<ComposerBlock | undefined> }
 }
@@ -370,8 +368,6 @@ export type ConversationSlotProps =
     | 'conversation.session' | 'conversation.session.header'
     | 'conversation.composer' | 'conversation.composer.bar'
     | 'conversation.input.dock'
-    | 'conversation.hero.brand.mark'
-    | 'conversation.hero.workspace'
     | 'conversation.hero.agentPreset'
   >
   & InjectFace<ConversationInjected>

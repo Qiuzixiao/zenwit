@@ -9,7 +9,7 @@ import type {
 } from '../contract/slots.ts'
 import { conversationPhase } from '../contract/snapshot.ts'
 import { resolveActiveView } from '../view-selection.ts'
-import css from './ConversationRoot.module.css'
+import css from './WorkbenchConversation.module.css'
 
 /** Full props composed from the strict session body contract. */
 export type ConversationSessionProps = ConversationSessionSlotProps

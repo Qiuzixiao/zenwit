@@ -119,7 +119,7 @@ async function bench(snapshot: ChatSnapshot) {
   const openWorkspacePath = vi.fn(async () => ({ ok: true, value: { opened: true } }))
   ctx.provide('layout', layout as never)
   const sidebarRight = { openResource: vi.fn<(address: string) => void>() }
-  ctx.provide('sidebarRight', sidebarRight as never)
+  ctx.provide('workbenchFiles', { openFile: sidebarRight.openResource } as never)
   ctx.provide('uiWorkspace', {} as never)
   new TestRemote(ctx, { session: { openWorkspacePath } })
   const locale = new LocaleRuntime(ctx)
@@ -226,7 +226,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
     const view = mountApp(b.runtime)
     view.getByText('notes/demo.txt').click()
     await vi.waitFor(() => {
-      expect(b.sidebarRight.openResource).toHaveBeenCalledWith('dsh-resource://file/session/s1/notes/demo.txt')
+      expect(b.sidebarRight.openResource).toHaveBeenCalledWith('notes/demo.txt')
     })
     expect(b.openWorkspacePath).not.toHaveBeenCalled()
     view.getByText('List notes').click()

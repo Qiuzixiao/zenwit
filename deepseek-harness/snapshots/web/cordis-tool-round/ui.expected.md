@@ -1,19 +1,3 @@
-- banner:
-  - navigation "Session hierarchy":
-    - button "Use only Cordis tools. First" [disabled]
-  - img
-  - text: Standard mode
-  - button "More actions":
-    - img
-  - button "Open right sidebar":
-    - img
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-- navigation "Turn navigation":
-  - button "Jump to turn 1"
-  - button "Jump to turn 2"
-  - button "Jump to turn 3"
 - button "System prompt":
   - img
   - img
@@ -50,7 +34,7 @@
   - text: javascript
   - button "Copy"
   - code: "return { name: \"snapshot-noop\", apply(ctx) {} }"
-- text: Result Defined snap-1/pkg-1 (snapshot noop); it is not running yet. Use cordis_run to activate this Package. Run controls live in the Cordis panel above Settings
+- text: Result Defined snap-1/pkg-1 (snapshot noop); it is not running yet. Use cordis_run to activate this Package. Run controls are in the workbench plugin panel
 - button "Inspect"
 - button "Think The Host returned snap-1/pkg-1, so I will request its first activation.":
   - img
@@ -120,7 +104,7 @@
   - img
 - button "Add attachment":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
+- 'button "Access mode, current: Workspace Write"'
 - button "Select model, current DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img

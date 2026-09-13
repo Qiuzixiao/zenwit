@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import {
   parseBilingualRecord,
   verifyBilingualRecords,
+  verifyTrackedBilingualRecords,
 } from './bilingual-docs.mjs'
 
 test('parses exactly two Markdown blob records', () => {
@@ -82,4 +86,19 @@ test('reports malformed records and missing documents in one failure', () => {
     },
     hashDocument: () => 'a'.repeat(40),
   }), /broken\.i18n\.yaml:1[\s\S]*cannot verify docs\/missing\.md[\s\S]*cannot verify docs\/missing\.zh\.md/u)
+})
+
+test('validates new records and allows removed package documentation before staging', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'zenwit-doc-records-'))
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
+  try {
+    git('init', '--quiet')
+    writeFileSync(resolve(root, 'topic.md'), 'English')
+    writeFileSync(resolve(root, 'topic.zh.md'), '中文')
+    writeFileSync(resolve(root, 'topic.i18n.yaml'), `topic.md: ${git('hash-object', 'topic.md')}\ntopic.zh.md: ${git('hash-object', 'topic.zh.md')}\n`)
+    assert.equal(verifyTrackedBilingualRecords(root).recordCount, 1)
+    git('add', '.')
+    for (const path of ['topic.md', 'topic.zh.md', 'topic.i18n.yaml']) rmSync(resolve(root, path))
+    assert.equal(verifyTrackedBilingualRecords(root).recordCount, 0)
+  } finally { rmSync(root, { recursive: true, force: true }) }
 })

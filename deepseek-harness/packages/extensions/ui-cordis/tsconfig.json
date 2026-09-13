@@ -8,6 +8,8 @@
     "src"
   ],
   "references": [
+    { "path": "../../client/ui-workspace" },
+    { "path": "../../client/store" },
     {
       "path": "../../../vendor/cordis"
     },

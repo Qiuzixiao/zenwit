@@ -31,6 +31,10 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
+    "./workspace": {
+      "types": "./lib/types/workspace.d.ts",
+      "default": "./lib/workspace.js"
+    },
     "./webserver": {
       "types": "./lib/types/webserver.d.ts",
       "default": "./lib/webserver.js"
@@ -135,7 +139,7 @@
     "verify:aa": "DSH_VERIFY_AA=1 node scripts/verify-profile-boot.mjs"
   },
   "dependencies": {
-    "@agents-anywhere/dsh-bridge-next": "file:../vendor/agents-anywhere/agents-anywhere-dsh-bridge-next-0.1.0-dev.0.desktop.c00df092c98b2.rcda81994.tgz",
+    "@agents-anywhere/dsh-bridge-next": "file:../vendor/agents-anywhere/agents-anywhere-dsh-bridge-next-0.1.0-dev.0.desktop.c10300fd5b013.rcda81994.tgz",
     "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/cordis-plugin-group": "1.0.2",
     "@deepseek-ai/cordis-plugin-include": "1.0.7",
@@ -287,7 +291,8 @@
     "selfsigned": "5.5.0",
     "semver": "^7.8.5",
     "sonner": "^2.0.8",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "zenwit-workspace": "0.1.0-dev.0"
   },
   "peerDependencies": {
     "electron": "43.3.0"

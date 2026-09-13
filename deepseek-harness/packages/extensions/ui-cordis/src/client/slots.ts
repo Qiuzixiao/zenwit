@@ -52,6 +52,7 @@ export interface CordisRunCardFace extends CordisCardFace {
   }
   /** Publish this successful result into the session's latest-card index. */
   onObserveRunCard(pointer: CordisRunCardPointer): void
+  onOpenPanel(): void
 }
 
 /** Frame-wide panel state and lifecycle verbs. */
@@ -62,6 +63,7 @@ export interface CordisPanelFace {
     runErrors: HostObservable<ReadonlyMap<CordisDynamicPluginId, CordisRunFailure>>
     renderFailures: HostObservable<ReadonlyMap<CordisDynamicPluginId, DynamicCordisRenderFailure>>
     loaded: HostObservable<readonly DynamicCordisLivePackage[]>
+    panelRequest: HostObservable<number>
   }
   onApprove(requestId: ApprovalRequestId, approveFutureVersions: boolean): Promise<void>
   onDecline(requestId: ApprovalRequestId): Promise<void>

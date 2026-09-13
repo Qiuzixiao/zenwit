@@ -2,6 +2,8 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { WorkspacePendingAction } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
@@ -67,6 +69,32 @@ export function apply(ctx: ClientContext): void {
   const runner = ctx.dynamicCordisRunner
   const loaded = { getSnapshot: () => runner.getSnapshot(), subscribe: (fn: () => void) => runner.subscribe(fn) }
   const runCards = new CordisRunCardRegistry()
+  const panelRequest = createSnapshotStore(0)
+  const openPanel = (): void => { panelRequest.set(panelRequest.getSnapshot() + 1) }
+  ctx.inject(['uiWorkspace'], scope => {
+    const pending = createSnapshotStore<readonly WorkspacePendingAction[]>([])
+    const update = (): void => {
+      const actions = new Map<string, WorkspacePendingAction>()
+      for (const row of inventory.getSnapshot().rows) {
+        if (row.latestRun?.status !== 'awaiting-approval') continue
+        const key = String(row.latestRun.approvalRequestId)
+        actions.set(key, { key, sessionId: row.agentId, label: String(row.pluginId), open: openPanel })
+      }
+      for (const activity of runner.activeRuns.getSnapshot().values()) {
+        if (activity.phase !== 'awaiting-approval') continue
+        const key = String(activity.requestId)
+        actions.set(key, { key, sessionId: activity.agentId, label: activity.name, open: openPanel })
+      }
+      pending.set([...actions.values()])
+    }
+    scope.effect(() => {
+      const offInventory = inventory.subscribe(update)
+      const offRuns = runner.activeRuns.subscribe(update)
+      update()
+      const unregister = scope.uiWorkspace.registerPendingSource(pending)
+      return () => { offInventory(); offRuns(); unregister() }
+    }, 'ui-cordis: workbench pending actions')
+  })
 
   ctx.effect(() => inventory.subscribe(() => {
     const snapshot = inventory.getSnapshot()
@@ -95,6 +123,7 @@ export function apply(ctx: ClientContext): void {
         runErrors: runner.lastRunError,
         loaded,
         renderFailures: runner.renderFailures,
+        panelRequest,
       },
       onApprove: (requestId, approveFutureVersions) => runner.approve(requestId, approveFutureVersions),
       onDecline: requestId => runner.decline(requestId),
@@ -132,6 +161,7 @@ export function apply(ctx: ClientContext): void {
       return {
         hooks: { inventory, loaded, runCards: store, activeRuns: runner.activeRuns },
         onObserveRunCard: (pointer) => { store.observe(pointer) },
+        onOpenPanel: openPanel,
       }
     },
   }, CordisRunRow))

@@ -10,7 +10,7 @@ import {
   RemoteError, SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope,
 } from '@deepseek-ai/dsh-client-test-runtime'
 import { InputHub } from '../src/client/input/hub.ts'
-import { apply, inject, type EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { apply, inject } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 
@@ -50,11 +50,11 @@ const LAYOUT_CHILDREN = {
   'main': { kind: 'keyed', scope: 'root' },
 } as const
 
-function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
+function AgentProbe() {
   const [count, setCount] = useState(0)
   return (
-    <button data-testid="workspace-probe" onClick={() => { setCount(value => value + 1) }}>
-      {String(open)}:{count}
+    <button data-testid="agent-probe" onClick={() => { setCount(value => value + 1) }}>
+      {count}
     </button>
   )
 }
@@ -102,25 +102,22 @@ describe('resident composer', () => {
     runtime.slots.installLocale(locale)
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
     await runtime.mount({ inject: [...inject], apply })
-    runtime.slots.register({ name: 'conversation.hero.workspace' }, WorkspaceProbe)
+    runtime.slots.register({ name: 'conversation.hero.agentPreset' }, AgentProbe)
     const view = runtime.renderRoot()
     const textarea = view.container.querySelector<HTMLDivElement>('[data-composer-input]')
     expect(textarea).not.toBeNull()
-    expect(textarea!.getAttribute('aria-disabled')).not.toBe('true')
+    expect(textarea!.getAttribute('aria-disabled')).toBe('true')
     expect(textarea!.getAttribute('contenteditable')).not.toBe('true')
-    expect(textarea!.getAttribute('aria-haspopup')).toBe('menu')
-    expect(view.getByTestId('workspace-probe').textContent).toBe('false:0')
+    expect(textarea!.getAttribute('aria-haspopup')).toBeNull()
+    expect(view.queryByRole('button', { name: '选择工作区' })).toBeNull()
     fireEvent.click(textarea!)
-    expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
-    expect(textarea!.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(view.getByRole('button', { name: '选择工作区' }))
     fireEvent.keyDown(textarea!, { key: 'Enter' })
-    expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
-    expect(view.getByRole('button', { name: '选择工作区' })).toBeTruthy()
+    expect(textarea!.getAttribute('aria-expanded')).toBeNull()
+    expect(view.getByTestId('agent-probe')).toBeTruthy()
     await runtime.dispose()
   })
 
-  it('keeps the complete Hero tree mounted when the first Workspace session appears', async () => {
+  it('keeps the compact conversation pane mounted when the first Workspace session appears', async () => {
     const runtime = await SlotTestRuntime.create()
     runtime.ctx.provide('uiWorkspace', {
       openWorkspace: vi.fn(async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
@@ -138,21 +135,21 @@ describe('resident composer', () => {
     })
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
     await runtime.mount({ inject: [...inject], apply })
-    runtime.slots.register({ name: 'conversation.hero.workspace' }, WorkspaceProbe)
+    runtime.slots.register({ name: 'conversation.hero.agentPreset' }, AgentProbe)
     const view = runtime.renderRoot()
 
-    const root = view.container.querySelector('[data-phase="hero"]')!
+    const root = view.container.querySelector('[data-phase="empty"]')!
+    expect(root).not.toBeNull()
+    expect(view.queryByText('预览版')).toBeNull()
     const scrollBody = view.container.querySelector('[data-conversation-scroll]')!
     const composerSeat = view.container.querySelector('[data-composer-seat]')!
     const textarea = view.container.querySelector<HTMLDivElement>('[data-composer-input]')!
-    const workspaceChip = view.getByRole('button', { name: '选择工作区' })
-    const workspaceProbe = view.getByTestId('workspace-probe')
-    expect(textarea.getAttribute('aria-disabled')).not.toBe('true')
+    const agentProbe = view.getByTestId('agent-probe')
+    expect(textarea.getAttribute('aria-disabled')).toBe('true')
     expect(textarea.getAttribute('contenteditable')).not.toBe('true')
 
-    fireEvent.click(workspaceChip)
-    fireEvent.click(workspaceProbe)
-    expect(workspaceProbe.textContent).toBe('true:1')
+    fireEvent.click(agentProbe)
+    expect(agentProbe.textContent).toBe('1')
 
     await runtime.sessions.add({
       id: SID,
@@ -160,13 +157,12 @@ describe('resident composer', () => {
       snapshot: { blank: true },
     })
 
-    expect(view.container.querySelector('[data-phase="hero"]')).toBe(root)
+    expect(view.container.querySelector('[data-phase="empty"]')).toBe(root)
     expect(view.container.querySelector('[data-conversation-scroll]')).toBe(scrollBody)
     expect(view.container.querySelector('[data-composer-seat]')).toBe(composerSeat)
     expect(view.container.querySelector<HTMLDivElement>('[data-composer-input]')).toBe(textarea)
-    expect(view.getByRole('button', { name: '选择工作区' })).toBe(workspaceChip)
-    expect(view.getByTestId('workspace-probe')).toBe(workspaceProbe)
-    expect(workspaceProbe.textContent).toBe('true:1')
+    expect(view.getByTestId('agent-probe')).toBe(agentProbe)
+    expect(agentProbe.textContent).toBe('1')
     expect(textarea.getAttribute('aria-disabled')).not.toBe('true')
     expect(textarea.getAttribute('contenteditable')).toBe('true')
     await runtime.dispose()

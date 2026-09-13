@@ -115,9 +115,6 @@ const DESKTOP_WEB_SERVER_PACKAGE = `${DESKTOP_PACKAGE_NAME}/webserver`
 const SETTINGS_FILE_PACKAGE = '@deepseek-ai/dsh-settings-file'
 const DESKTOP_SETTINGS_NAMESPACE = 'dsh-desktop'
 const MAX_FALLBACK_MANIFEST_BYTES = 1024 * 1024
-const UI_LAYOUT_PACKAGE = '@deepseek-ai/dsh-client-ui-layout'
-const UI_SIDEBAR_PACKAGE = '@deepseek-ai/dsh-client-ui-sidebar'
-const UI_CONVERSATION_PACKAGE = '@deepseek-ai/dsh-client-ui-conversation'
 const DEFAULT_DESKTOP_MARKET_SNAPSHOT: DesktopMarketSnapshot = Object.freeze({
   requested: 'disabled',
   effective: 'disabled',
@@ -941,6 +938,10 @@ export function prepareDesktopProfile(
   for (const row of composedRows) {
     if (typeof row.id === 'string') rows.set(row.id, row)
   }
+  const workspace = rows.get('zenwit-workspace')
+  if (workspace?.name === `${DESKTOP_PACKAGE_NAME}/workspace`) {
+    patches.push({ id: 'zenwit-workspace', config: { ...rowConfig(workspace), homeDir: home } })
+  }
   const settings = rows.get('settings')
   if (settings?.name !== SETTINGS_FILE_PACKAGE) {
     throw new Error(`${BIN_NAME}: desktop profile must use ${SETTINGS_FILE_PACKAGE} in the settings row`)
@@ -978,22 +979,6 @@ export function prepareDesktopProfile(
       trustedHosts: webRuntimeTrustedHosts(webRuntimeConfig.trustedHosts, lanAddresses),
     },
   })
-  if (mode === 'advanced' || mode === 'extended') {
-    for (const [id, packageName] of [
-      ['ui-layout', UI_LAYOUT_PACKAGE],
-      ['ui-sidebar', UI_SIDEBAR_PACKAGE],
-      ['ui-conversation', UI_CONVERSATION_PACKAGE],
-    ] as const) {
-      if (rows.get(id)?.name !== packageName) {
-        throw new Error(`${BIN_NAME}: ${mode} desktop mode must use ${packageName} in the ${id} row`)
-      }
-    }
-    patches.push(
-      { id: 'ui-layout', disabled: true },
-      { id: 'ui-sidebar', disabled: false },
-      { id: 'ui-conversation', disabled: false },
-    )
-  }
   const presets = rows.get(AGENT_PRESETS_ROW_ID)
   if (presets !== undefined) {
     const shippedRoot = shippedPresetRoot()

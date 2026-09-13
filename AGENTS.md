@@ -24,7 +24,7 @@ This repository owns both the desktop product and the editable DeepSeek Harness 
 - `dsh-community-market/` owns the community-market shell. Until its runtime is implemented, it remains a private documentation scaffold and must not declare loadable DSH or package entry points.
 - The outer repository and all owned packages use the root Yarn release with `nodeLinker: node-modules`.
 - The kernel keeps its own pnpm workspace. Run kernel commands through the root `upstream:*` scripts, whose Yarn portable-shell commands enter the source directory before invoking Corepack.
-- Compatibility mode retains the kernel layout. zenwit owns branding through declared sidebar/conversation slots, runtime copy patches, and profile composition; do not reactivate upstream brand or feedback plugins.
+- Zenwit owns the sole generic workbench root: home, file manager, editor, and conversation. Desktop modes control native chrome only. Do not restore deleted DSH page owners or use priority/CSS to cover a retained original page. Agent workflows must not own common workbench capabilities; do not reactivate upstream brand or feedback plugins.
 - Keep graphical application launch explicit. Builds, typechecks, unit tests, and Loader smokes must remain headless-safe.
 - Keep dependency lockfiles for reproducible builds; they do not restrict kernel source edits.
 - Desktop consumes local `vendor/dsh-runtime/` tarballs. After changing the kernel, build and synchronize them as described in [local kernel development](docs/local-kernel.md).

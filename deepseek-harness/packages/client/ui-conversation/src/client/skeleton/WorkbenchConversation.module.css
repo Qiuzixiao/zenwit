@@ -1,0 +1,250 @@
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  /* The workbench owns the pane width; transcript and composer fill it. */
+  --dsh-chat-content-width: 100%;
+  --dsh-composer-card-max-width: 100%;
+  --dsh-composer-side-clearance: 12px;
+  --dsh-composer-dock-inset: 8px;
+}
+
+.emptyHeader {
+  flex: none;
+  padding: 12px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+}
+
+.header {
+  flex: none;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 6px 12px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+}
+
+.headerHidden {
+  display: none;
+}
+
+.titleRow {
+  flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 30px;
+}
+
+.titleCluster {
+  flex-wrap: wrap;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.crumbSeg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.crumbSep {
+  
+  color: var(--dsw-alias-label-caption);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.crumb {
+  max-width: 180px;
+  overflow: hidden;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.crumbSubagent {
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.crumb:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.crumbCurrent {
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+  cursor: default;
+}
+
+.headerActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerUtilities {
+  display: var(--dsh-conversation-header-utilities-display, flex);
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.headerUtilities:empty {
+  display: none;
+}
+
+.headerCorner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-left: 8px;
+  margin-right: 0;
+}
+
+.headerCorner:empty {
+  display: none;
+}
+
+.tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 20px;
+  margin-top: 4px;
+  padding-left: 8px;
+}
+
+.tab {
+  position: relative;
+  padding: 0 0 9px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.tab::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.tabActive {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.tabActive::after {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.viewArea {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  min-height: auto;
+}
+
+.body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.scrollBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.composerStack {
+  --dsh-composer-stack-gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsh-composer-stack-gap);
+}
+
+/* The entire chain stays docked, including permission/question takeovers. */
+.composerSeat {
+  --dsh-composer-text-max-height: min(240px, 35vh);
+  position: sticky;
+  bottom: 0;
+  z-index: 7;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  margin-top: auto;
+  padding-top: 12px;
+  background: var(--dsw-alias-bg-base);
+}
+
+.composerSeat:has([data-trigger-menu]) {
+  z-index: 9;
+}
+
+/* Alternate views retain their own scroller and floating composer controls. */
+.scrollBody:has([data-conversation-composer-overlay]) {
+  position: relative;
+  overflow-x: hidden;
+  scrollbar-gutter: auto;
+}
+
+.scrollBody:has([data-conversation-composer-overlay]) > :global([data-slot='conversation.session']) > .viewArea {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scrollBody:has([data-conversation-composer-overlay]) > .composerSeat {
+  position: absolute;
+  right: var(--dsh-scrollbar-width);
+  bottom: 0;
+  left: 0;
+}
+
+.root[data-phase='settling'] .composerSeat {
+  visibility: hidden;
+}

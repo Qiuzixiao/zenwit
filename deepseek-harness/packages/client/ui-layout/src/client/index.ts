@@ -1,29 +1,14 @@
-/**
- * Layout plugin, browser half: one register() call contributes AppFrame into
- * the runtime's built-in 'root' slot and, in the same breath, declares the
- * four child slots (declaration = exclusive render authority), seats the
- * layout store (panel geometry), and wires the panel-action service face.
- * ctx.layout selects the main panel and controls column geometry; Session
- * selection belongs to the Session Controller. A second effect seats the theme
- * presenter, which projects ctx.theme snapshots onto document.body.
- */
+/** Layout service, panel-selection hooks, and document theme presentation. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PanelInfo } from './service.ts'
-import { AppFrame } from './AppFrame.tsx'
 import { createLayoutStore } from './stores.ts'
 import { LayoutController } from './service.ts'
 import { ThemePresenter } from './theme-presenter.ts'
 
-// Contract exports only (export-convergence rule: cross-package consumers
-// keep a symbol exported; test-only/package-internal symbols live off /src).
-// ILayout: the ctx.layout face consumers and test fakes type against.
-// OwnerShare contracts below are the render-side halves registrants compose
-// against; the frame components and the store factory are package-internal.
+// Public navigation and shell contracts; visual ownership belongs to the workbench.
 export { LayoutController } from './service.ts'
 export type { ILayout, MainPanelId, PanelInfo } from './service.ts'
 
@@ -44,39 +29,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 
   interface SlotMap {
-    // The 'root' entry itself is the runtime's built-in slot (declared
-    // there); these four are the frame's children, declared by the same
-    // register() call that contributes AppFrame. Session owners never pass
-    // sessionId: the framework injects it as a standard prop.
-    /**
-     * The whole left column. OCCUPIED by ui-sidebar's SidebarRoot, which
-     * declares the workspace and settings seats inside it — registering here
-     * replaces the navigation column outright rather than adding to it, and
-     * the seats it declares disappear with it. To add something to the
-     * sidebar, register into one of those inner seats instead.
-     *
-     * The occupant receives the frame's live column state (collapsed, width)
-     * and is expected to render the compact control rail while collapsed.
-     */
+    /** Optional sidebar seat declared by a visual shell. */
     'sidebar': { kind: 'single'; scope: 'root'; owner: SidebarOwnerProps }
     /**
      * Central panel selected by sidebar entry id. The reserved `conversation`
      * key hosts the Conversation; other keys receive no Session binding.
      */
     'main': { kind: 'keyed'; scope: 'root' }
-    /**
-     * The right column: a track the centre makes room for, or nothing. OCCUPIED
-     * by the right Sidebar, which uses the resolved column width in normal
-     * mode and covers the viewport in fullscreen, retaining the wide-screen
-     * column reservation underneath.
-     *
-     * Whether the panel is shown, and whether it takes a track, is the
-     * occupant's own recorded business — it reports the composition of its
-     * expanded and presentation state through `ctx.layout`, and the frame sizes
-     * the track and places the resize handle from that. The expand control is
-     * not this column's: it is a button in the conversation header. The root
-     * occupant decides when to render its Session-bound content.
-     */
+    /** Optional right-panel seat declared by a visual shell. */
     'rightbar': { kind: 'single'; scope: 'root'; owner: RightbarOwnerProps }
     /**
      * Frame-wide floating layer, above every column and outside their scroll
@@ -102,7 +62,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export interface SidebarOwnerProps {
   /** True when the sidebar is closed (the column renders the compact control rail). */
   collapsed: boolean
-  /** Rendered column width in px (SIDEBAR_COLLAPSED when collapsed). */
+  /** Rendered column width in pixels. */
   width: number
 }
 
@@ -120,19 +80,16 @@ export interface RightbarOwnerProps {
 }
 
 /** Required services (cordis fiber inject — the loader passes all module exports as an object plugin). */
-export const inject = ['slots', 'theme', 'locale']
+export const inject = ['slots', 'theme']
 
 /**
- * Client plugin body: provide ctx.layout, then one register() call — AppFrame
- * into 'root' with the four child-slot declarations, the layout store seat,
- * and the shared root instance supplying commands and the panel-info source.
+ * Provide layout navigation and root panel hooks without registering a visual root.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const handle = createLayoutStore()
     const instance = handle.create()
-    const store: typeof handle = { ...handle, create: () => instance }
     const layout = new LayoutController(instance.actions, id =>
       ctx.slots.entries('main').some(entry => entry.options.key === id))
     const retainMainPanels = (): void => {
@@ -145,28 +102,16 @@ export function apply(ctx: ClientContext): void {
     }
     const disposePanelInfo = ctx.slots.provideRoot({ hooks: { panelInfo } })
     const disposeService = ctx.reflect.provide('layout', layout)
-    const disposeRegistration = ctx.slots.register({
-      name: 'root',
-      locale: 'common',
-      children: {
-        'sidebar': { kind: 'single', scope: 'root' },
-        'main': { kind: 'keyed', scope: 'root' },
-        'rightbar': { kind: 'single', scope: 'root' },
-        'shell.overlay': { kind: 'list', scope: 'root' },
-      },
-      store,
-    }, AppFrame)
     const disposePanels = ctx.slots.subscribe('main', retainMainPanels)
     retainMainPanels()
     return () => {
       layout.dispose()
       disposePanels()
-      disposeRegistration()
       disposePanelInfo()
       // provide()'s disposer settles asynchronously; teardown is synchronous fire-and-forget.
       void disposeService()
     }
-  }, 'ui-layout: service + root registration')
+  }, 'ui-layout: service + panel selection')
 
   // Theme presentation: pure DOM writes from resolved snapshots — initial
   // state through the getter once, then event-driven only; no React path.

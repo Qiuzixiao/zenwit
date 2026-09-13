@@ -48,10 +48,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.badgeMain { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 
 .badgeCount {
   flex: none;
   margin-left: auto;
+  white-space: nowrap;
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
   line-height: 16px;

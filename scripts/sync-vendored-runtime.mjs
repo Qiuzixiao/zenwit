@@ -130,7 +130,7 @@ function writeVendor() {
 
   const workspace = readJson(workspacePath)
   const resolutions = Object.fromEntries(Object.entries(workspace.resolutions ?? {})
-    .filter(([selector]) => !isDshResolution(selector) || isOtherChannelResolution(selector)))
+    .filter(([selector]) => !isDshResolution(selector) || (otherVersion !== version && isOtherChannelResolution(selector))))
   for (const entry of packages) {
     resolutions[resolutionSelector(entry.name)] = expectedResolution(entry)
     resolutions[resolutionSelector(entry.name, `^${version}`)] = expectedResolution(entry)
