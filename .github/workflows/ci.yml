@@ -141,6 +141,17 @@ jobs:
         env:
           DSH_PACKAGE_CHECK_ALREADY_RAN: '1'
         run: yarn workspace ${{ matrix.workspace }} dist:win-portable
+      # Downloadable deliverables: the NSIS installer and the portable archive
+      # written into the package's dist directory by the two steps above.
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.workspace }}
+          path: |
+            ${{ matrix.workspace }}/dist/*.exe
+            ${{ matrix.workspace }}/dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
 
   # macOS-only universal packaging smoke on a real macOS runner: the signed
   # release is built manually on a credentialed machine, so an unsigned DMG
@@ -177,6 +188,14 @@ jobs:
         env:
           DSH_PACKAGE_CHECK_ALREADY_RAN: '1'
         run: yarn workspace ${{ matrix.workspace }} dist:mac-smoke
+      # The unsigned smoke DMG is CI's installable macOS deliverable.
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.workspace }}
+          path: ${{ matrix.workspace }}/dist/mac-smoke/*.dmg
+          if-no-files-found: error
+          retention-days: 14
 
   # Upstream toolchain smoke: the portable-shell scripts must resolve the
   # locally owned kernel's pnpm release on Windows.
