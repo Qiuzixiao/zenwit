@@ -38,6 +38,16 @@ export const zh = {
   active: '运行中',
   failed: '启动失败',
   unloading: '卸载中',
+  rendererTitle: '文档渲染器',
+  rendererSubtitle: '当前客户端已注册的预览渲染器',
+  rendererBuiltin: '内置',
+  rendererPlugin: '插件',
+  rendererActive: '可用',
+  rendererFailed: '加载失败',
+  rendererRejected: '已拒绝',
+  rendererRejectedContract: '声明契约 {declared}，但本构建实现 {required}。',
+  rendererRejectedDuplicate: '已有渲染器注册了同一 id。',
+  rendererRejectedInvalid: '字段 {field} 无效。',
 } satisfies Record<string, string>
 
 /** Plugin inventory locale key union. */
@@ -81,4 +91,14 @@ export const en = {
   active: 'Running',
   failed: 'Failed to start',
   unloading: 'Unloading',
+  rendererTitle: 'Document renderers',
+  rendererSubtitle: 'Preview renderers registered on this client',
+  rendererBuiltin: 'Built-in',
+  rendererPlugin: 'Plugin',
+  rendererActive: 'Active',
+  rendererFailed: 'Load failed',
+  rendererRejected: 'Rejected',
+  rendererRejectedContract: 'Declares contract {declared}, but this build implements {required}.',
+  rendererRejectedDuplicate: 'Another renderer already registered this id.',
+  rendererRejectedInvalid: 'Invalid {field}.',
 } satisfies Record<PluginInventoryLocaleKey, string>

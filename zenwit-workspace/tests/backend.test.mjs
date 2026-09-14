@@ -100,6 +100,7 @@ test('node create/rename/delete, structure and resources preserve frontend vocab
   assert.equal((await f.api('/node', 'POST', { path: file, kind: 'file' })).status, 200)
   const tree = (await f.api('/structure' + query(path))).body
   assert.equal(tree.root, 'Notes')
+  assert.equal(tree.truncated, false)
   assert.equal(tree.tree[0].kind, 'dir')
   assert.equal(tree.tree[0].children[0].path, file)
   assert.equal((await f.api('/resources' + query(path))).body.resources[0].name, 'drafts/note.md')
@@ -109,6 +110,21 @@ test('node create/rename/delete, structure and resources preserve frontend vocab
   assert.equal((await f.api('/node', 'DELETE', { path: folder })).status, 200)
   assert.equal(existsSync(renamed), false)
   assert.equal((await f.api('/node', 'DELETE', { path })).status, 403)
+})
+
+test('structure and resources omit dependency caches instead of walking them', async t => {
+  const f = await fixture(t)
+  const path = await f.project()
+  mkdirSync(join(path, 'notes'))
+  writeFileSync(join(path, 'notes', 'a.md'), '# a')
+  mkdirSync(join(path, 'node_modules', 'dep'), { recursive: true })
+  writeFileSync(join(path, 'node_modules', 'dep', 'README.md'), '# dependency')
+  const structure = (await f.api('/structure' + query(path))).body
+  assert.equal(structure.truncated, false)
+  assert.deepEqual(structure.tree.map(node => node.name), ['notes'])
+  const resources = (await f.api('/resources' + query(path))).body
+  assert.equal(resources.truncated, false)
+  assert.deepEqual(resources.resources.map(entry => entry.name), ['notes/a.md'])
 })
 
 test('text save requires observed content and never overwrites stale or deleted files', async t => {
@@ -367,3 +383,99 @@ test('binary previews preserve bytes and related resources stay inside the sourc
   assert.deepEqual(readFileSync(image), bytes)
   assert.equal((await fetch(f.origin + '/api/desktop/projects/file' + query(image, '&raw=1'), { headers: { origin: 'https://untrusted.example' } })).status, 403)
 })
+
+test('streams media with real MIME, ranges, ETag, conditional requests, and containment', async t => {
+  const f = await fixture(t)
+  const project = await f.project('Media')
+  const bytes = Buffer.from(Array.from({ length: 4096 }, (_, index) => index % 251))
+  const clip = join(project, 'clip.mp4')
+  writeFileSync(clip, bytes)
+  const stream = (path, suffix = '') => fetch(f.origin + '/api/desktop/projects/file' + query(path, suffix), { headers: { origin: f.origin } })
+  const ranged = (path, range) => fetch(f.origin + '/api/desktop/projects/file' + query(path, '&stream=1'), { headers: { origin: f.origin, range } })
+
+  const full = await stream(clip, '&stream=1')
+  assert.equal(full.status, 200)
+  assert.equal(full.headers.get('content-type'), 'video/mp4')
+  assert.equal(full.headers.get('content-disposition'), 'inline')
+  assert.equal(full.headers.get('accept-ranges'), 'bytes')
+  assert.equal(full.headers.get('x-content-type-options'), 'nosniff')
+  const etag = full.headers.get('etag')
+  assert.ok(etag)
+  assert.ok(full.headers.get('last-modified'))
+  assert.deepEqual(Buffer.from(await full.arrayBuffer()), bytes)
+
+  const partial = await ranged(clip, 'bytes=10-19')
+  assert.equal(partial.status, 206)
+  assert.equal(partial.headers.get('content-range'), `bytes 10-19/${bytes.length}`)
+  assert.equal(partial.headers.get('content-length'), '10')
+  assert.deepEqual(Buffer.from(await partial.arrayBuffer()), bytes.subarray(10, 20))
+
+  const suffix = await ranged(clip, 'bytes=-5')
+  assert.equal(suffix.status, 206)
+  assert.deepEqual(Buffer.from(await suffix.arrayBuffer()), bytes.subarray(bytes.length - 5))
+
+  const open = await ranged(clip, 'bytes=4090-')
+  assert.equal(open.status, 206)
+  assert.deepEqual(Buffer.from(await open.arrayBuffer()), bytes.subarray(4090))
+
+  const unsatisfiable = await ranged(clip, 'bytes=99999-')
+  assert.equal(unsatisfiable.status, 416)
+  assert.equal(unsatisfiable.headers.get('content-range'), `bytes */${bytes.length}`)
+
+  const notModified = await fetch(f.origin + '/api/desktop/projects/file' + query(clip, '&stream=1'), { headers: { origin: f.origin, 'if-none-match': etag } })
+  assert.equal(notModified.status, 304)
+
+  const svg = join(project, 'evil.svg')
+  writeFileSync(svg, '<svg onload="alert(1)"/>')
+  const svgResponse = await stream(svg, '&stream=1')
+  assert.equal(svgResponse.status, 200)
+  assert.equal(svgResponse.headers.get('content-type'), 'application/octet-stream')
+  assert.equal(svgResponse.headers.get('content-disposition'), 'attachment')
+  assert.match(svgResponse.headers.get('content-security-policy'), /sandbox/)
+
+  const bin = join(project, 'blob.bin')
+  writeFileSync(bin, Buffer.from([0, 1, 2]))
+  const binResponse = await stream(bin, '&stream=1')
+  assert.equal(binResponse.headers.get('content-type'), 'application/octet-stream')
+  assert.equal(binResponse.headers.get('content-disposition'), 'attachment')
+
+  const other = await f.project('Other')
+  writeFileSync(join(other, 'secret.mp4'), bytes)
+  // Authority is project-scoped, not workspace-scoped: any registered project's file streams.
+  assert.equal((await stream(join(other, 'secret.mp4'), '&stream=1')).status, 200)
+  // A relative reference must stay inside the current project.
+  assert.equal((await stream(join(project, 'pages/index.html'), '&stream=1&relative=' + encodeURIComponent('../../Other/secret.mp4'))).status, 403)
+  assert.equal((await stream(join(project, 'missing.mp4'), '&stream=1')).status, 404)
+})
+
+test('detects the text encoding and saves back in the original encoding', async t => {
+  const f = await fixture(t)
+  const project = await f.project('Encoded')
+
+  // GBK (gb18030) CSV: 你好,1
+  const legacy = join(project, 'legacy.csv')
+  writeFileSync(legacy, Buffer.from([0xC4, 0xE3, 0xBA, 0xC3, 0x2C, 0x31, 0x0A, 0x0A]))
+  const read = await f.api('/file' + query(legacy))
+  assert.equal(read.status, 200)
+  assert.equal(read.body.encoding, 'gb18030')
+  assert.equal(read.body.content, '你好,1\n\n')
+
+  const outgoing = '再见,2'
+  const saved = await f.api('/file', 'POST', { path: legacy, content: outgoing, expectedContent: read.body.content, encoding: 'gb18030' })
+  assert.equal(saved.status, 200, JSON.stringify(saved.body))
+  assert.equal(new TextDecoder('gb18030').decode(readFileSync(legacy)), outgoing)
+
+  // UTF-16LE with BOM.
+  const note = join(project, 'note.txt')
+  writeFileSync(note, Buffer.concat([Buffer.from([0xFF, 0xFE]), Buffer.from('line', 'utf16le')]))
+  const utf16 = await f.api('/file' + query(note))
+  assert.equal(utf16.body.encoding, 'utf-16le')
+  assert.equal(utf16.body.content, 'line')
+
+  // Unrecognized bytes stay a binary refusal.
+  const blob = join(project, 'blob.dat')
+  writeFileSync(blob, Buffer.from([0x00, 0x00, 0x41, 0x7F, 0x00, 0xE2, 0x99, 0x00, 0x00, 0x9D, 0x00, 0x81]))
+  assert.equal((await f.api('/file' + query(blob))).status, 415)
+})
+
+

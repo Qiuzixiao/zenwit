@@ -7,6 +7,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the 'settings.agentPreset' LocaleNamespaceMap merge, whose
 // dictionaries the shipped-preset name resolution below reads.
 import type {} from '@deepseek-ai/dsh-client-ui-agent-preset/client'
+// Type-only: pulls the Workbench `ctx.documentRenderers` Context merge read below.
+import type {} from '@deepseek-ai/dsh-client-ui-workbench/preview'
 // Inline-safe shared fold: shipped ids map to dictionary keys in one home.
 import { presetDisplayText } from '@deepseek-ai/dsh-agent-presets/display'
 import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
@@ -45,7 +47,10 @@ export function apply(ctx: ClientContext): void {
   const agentPresetCopy = ctx.locale.bind('settings.agentPreset')
   const presetName: PluginInventorySettingsTabInjected['presetName'] = preset =>
     presetDisplayText(preset, agentPresetCopy).name
-  const injected = (): PluginInventorySettingsTabInjected => ({ list, presetName })
+  // Optional: the Workbench owns the registry, and a profile without it shows none.
+  const renderers: PluginInventorySettingsTabInjected['renderers'] = () =>
+    ctx.get('documentRenderers')?.inventory() ?? { entries: [], rejected: [] }
+  const injected = (): PluginInventorySettingsTabInjected => ({ list, presetName, renderers })
 
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',

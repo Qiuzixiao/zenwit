@@ -177,7 +177,8 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   theme: 'client-side interface-typed browser service — packages/client/ui-theme/README.md owns the API',
   workspaces: 'client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API',
   resources: 'client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API',
-  documentPreviews: 'client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API',
+  workbenchFiles: 'client-side Workbench file-link service — packages/client/ui-workbench/README.md owns the API',
+  documentRenderers: 'client-side document renderer registry — packages/client/ui-workbench/README.md owns the API',
 }
 
 /**

@@ -7,6 +7,7 @@ import type { ProjectApi } from './project-api.ts'
 import type { WorkbenchKey } from './locales.ts'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspacePendingAction } from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { DocumentRenderers } from './document-renderers.ts'
 
 /** A file navigation request; sequence distinguishes repeated clicks. */
 export interface FileRequest { path: string; line: number | undefined; sequence: number }
@@ -35,6 +36,7 @@ export interface Panel { id: MainPanelId; label: string }
 export interface WorkbenchInjected {
   api: ProjectApi
   request: typeof fetch
+  documentRenderers: DocumentRenderers
   addSelectionToConversation(target: 'current' | 'new', text: string, label?: string, path?: string): Promise<void>
   openProject(path: string): Promise<void>
   goHome(): void
@@ -46,7 +48,7 @@ export interface WorkbenchInjected {
   forkSession(id: SessionId): Promise<void>
   guardNavigation(guard: (cwd: string | undefined) => boolean | Promise<boolean>): () => void
   selectPanel(id: MainPanelId | null): void
-  hooks: { panels: HostObservable<readonly Panel[]>; fileRequest: HostObservable<FileRequest | null>; fileRevision: HostObservable<number>; navigation: HostObservable<number>; pendingActions: HostObservable<readonly WorkspacePendingAction[]> }
+  hooks: { panels: HostObservable<readonly Panel[]>; fileRequest: HostObservable<FileRequest | null>; fileRevision: HostObservable<number>; documentRendererRevision: HostObservable<number>; navigation: HostObservable<number>; pendingActions: HostObservable<readonly WorkspacePendingAction[]> }
 }
 
 /** The only shell child slots; settings and plugin panels keep their own owners. */

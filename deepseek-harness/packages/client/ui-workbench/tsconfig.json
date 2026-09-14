@@ -22,6 +22,9 @@
       "path": "../../core/session"
     },
     {
+      "path": "../../util/media-type"
+    },
+    {
       "path": "../locale"
     },
     {

@@ -21,6 +21,9 @@
       "path": "../ui-settings"
     },
     {
+      "path": "../ui-workbench"
+    },
+    {
       "path": "../ui-agent-preset"
     },
     {

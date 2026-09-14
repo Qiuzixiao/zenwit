@@ -157,6 +157,7 @@
     { "path": "./packages/util/chunked-list" },
     { "path": "./packages/util/values" },
     { "path": "./packages/util/workspace-path" },
+    { "path": "./packages/util/media-type" },
     { "path": "./packages/util/output-retention" },
     { "path": "./packages/util/atomic-write" },
     { "path": "./packages/attachment/attachment" },

@@ -22,6 +22,10 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
+    "./preview": {
+      "types": "./lib/types/preview.d.ts",
+      "default": "./lib/preview.js"
+    },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
@@ -60,6 +64,7 @@
     "@deepseek-ai/dsh-client-ui-sidebar": "workspace:^",
     "@deepseek-ai/dsh-client-ui-workspace": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
+    "@deepseek-ai/dsh-util-media-type": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^",
     "react": "^18.2.0",
     "@types/react": "~18.3.1",
@@ -83,6 +88,7 @@
   "files": [
     "lib/index.js",
     "lib/client.js",
+    "lib/preview.js",
     "lib/types/**/*.d.ts"
   ]
 }

@@ -1,7 +1,7 @@
 /** Finite HTML-declared classic scripts and stylesheets; no module, CSS dependency or runtime fetch traversal. */
 import type { HtmlAsset, HtmlBundle } from './bootstrap.ts'
 type DocumentFileBytes = { data: Uint8Array<ArrayBuffer> }
-import { imageMime } from '../../document-types.ts'
+import { imageMimeForPath } from '@deepseek-ai/dsh-util-media-type'
 import { decodeText } from './bytes.ts'
 
 /**
@@ -67,7 +67,7 @@ export async function packHtml(
     total += size
     if (total > MAX_TOTAL_BYTES) throw new Error('HTML package exceeds its total byte limit')
     if (!image) decodeText(asset.data)
-    assets.push({ kind, reference, data: asset.data, mime: image ? imageMime(path) : script ? 'application/javascript' : 'text/css' })
+    assets.push({ kind, reference, data: asset.data, mime: image ? imageMimeForPath(path) : script ? 'application/javascript' : 'text/css' })
     seen.add(key)
   }
   return { data, assets }

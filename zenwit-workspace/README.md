@@ -54,8 +54,8 @@ All paths are absolute. The base is `/api/desktop/projects`:
 | `POST` | `{ name, tags?, agentId? }` | `{ project }`; creates an empty directory and registers it |
 | `PATCH` | `{ path, tags }` | `{ project }` |
 | `POST /delete` or `POST ?action=delete` | `{ path }` | `{ ok: true, path }`; permanently removes registered project content |
-| `GET /structure` | `?path=projectPath` | `{ path, root, tree, agentId? }` |
-| `GET /resources` | `?path=projectPath` | `{ resources: [{ name, path, kind: 'file', detail }] }` |
+| `GET /structure` | `?path=projectPath` | `{ path, root, tree, truncated, agentId? }` |
+| `GET /resources` | `?path=projectPath` | `{ resources: [{ name, path, kind: 'file', detail }], truncated }` |
 | `POST /node` | `{ path, kind: 'file' \| 'directory' }` | `{ ok: true, path, node }` |
 | `PATCH /node` | `{ path, newName }` | `{ ok: true, path, node }` |
 | `DELETE /node` | `{ path }` | `{ ok: true, path }`; recursively deletes a directory |
@@ -72,7 +72,7 @@ All paths are absolute. The base is `/api/desktop/projects`:
 
 JSON bodies are limited to 2 MiB; raw import to 100 MiB, checked against both declared and streamed sizes. Imports and new nodes do not overwrite existing destinations. Tags preserve normalization, deduplication and the old limits (8 tags, 24 characters each).
 
-Tree nodes retain the legacy `kind: 'dir' | 'file'`, `detail`, and optional `children`; node mutation responses use `kind: 'directory' | 'file'`. Markdown display names omit `.md`. Scans omit dotfiles, links and special files and retain the old depth limit (levels 0–8). Resources include `.md`, `.markdown`, `.txt`, `.json`, `.yaml`, `.yml`. Text reads and writes reject invalid UTF-8, NUL bytes and known image/PDF files with `415`; binary imports and raw previews preserve bytes. Raw previews do not create text recovery entries.
+Tree nodes retain the legacy `kind: 'dir' | 'file'`, `detail`, and optional `children`; node mutation responses use `kind: 'directory' | 'file'`. Markdown display names omit `.md`. Scans omit dotfiles, links, special files and `node_modules` — dependency caches are not project content — and retain the old depth limit (levels 0–8). One scan carries at most 50,000 entries and reports `truncated: true` when that budget stopped the walk, so a response can never be unbounded. Resources include `.md`, `.markdown`, `.txt`, `.json`, `.yaml`, `.yml`. Text reads and writes reject invalid UTF-8, NUL bytes and known image/PDF files with `415`; binary imports and raw previews preserve bytes. Raw previews do not create text recovery entries.
 
 ## Storage and safety
 

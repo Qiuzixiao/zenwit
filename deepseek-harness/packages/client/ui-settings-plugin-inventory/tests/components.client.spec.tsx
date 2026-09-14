@@ -20,11 +20,13 @@ const t = ((key: PluginInventoryLocaleKey, params?: Record<string, string>): str
 function props(
   list: PluginInventorySettingsTabInjected['list'],
   presetName: PluginInventorySettingsTabInjected['presetName'] = preset => preset.name ?? preset.id,
+  renderers: PluginInventorySettingsTabInjected['renderers'] = () => ({ entries: [], rejected: [] }),
 ): PluginInventorySettingsTabProps {
   return {
     t,
     list,
     presetName,
+    renderers,
   } as PluginInventorySettingsTabProps
 }
 
@@ -376,5 +378,29 @@ describe('PluginInventorySettingsTab', () => {
     const pendingFailure = render(<PluginInventorySettingsTab {...props(() => deferredFailure.promise)} />)
     pendingFailure.unmount()
     await act(async () => { deferredFailure.reject(new Error('late failure')) })
+  })
+
+  it('lists registered and soft-rejected document renderers with localized reasons', async () => {
+    const renderers: PluginInventorySettingsTabInjected['renderers'] = () => ({
+      entries: [
+        { id: 'builtin/image', builtin: true, status: 'active' },
+        { id: 'community/mindmap', builtin: false, status: 'load-failed' },
+      ],
+      rejected: [
+        { id: 'broken/contract', rejection: { kind: 'contract', declared: 2, required: 1 } },
+        { id: 'broken/duplicate', rejection: { kind: 'duplicate-id', id: 'builtin/image' } },
+        { id: 'broken/invalid', rejection: { kind: 'invalid', field: 'maxBytes' } },
+      ],
+    })
+    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, undefined, renderers)} />)
+    expect(await screen.findByText('builtin/image')).toBeTruthy()
+    expect(screen.getByText('community/mindmap')).toBeTruthy()
+    expect(screen.getByText(en.rendererBuiltin)).toBeTruthy()
+    expect(screen.getByText(en.rendererPlugin)).toBeTruthy()
+    expect(screen.getByText(en.rendererFailed)).toBeTruthy()
+    expect(screen.getByText('broken/contract')).toBeTruthy()
+    expect(screen.getByText('Declares contract 2, but this build implements 1.')).toBeTruthy()
+    expect(screen.getByText(en.rendererRejectedDuplicate)).toBeTruthy()
+    expect(screen.getByText('Invalid maxBytes.')).toBeTruthy()
   })
 })

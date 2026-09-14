@@ -422,6 +422,16 @@ function profileVirtualStoreDirMaxLength(profileDir: string, platform: NodeJS.Pl
   return configured
 }
 
+/** Whether a directory holds at least one entry; an unreadable directory counts as empty. */
+function directoryHasEntries(path: string): boolean {
+  try {
+    return readdirSync(path).length > 0
+  } catch {
+    // An unreadable directory cannot provide a materialized layout, so treat it as absent.
+    return false
+  }
+}
+
 /** Return whether private module metadata was written by a compatible pnpm generation. */
 function compatiblePnpmPackageManager(value: unknown): boolean {
   if (typeof value !== 'string') return false
@@ -438,7 +448,11 @@ function profileDependencyMigrationRequired(
   const manifest = readProfileManifest(BIN_NAME, profileDir)
   const hasDependencies = Object.keys(manifest.dependencies ?? {}).length > 0
   const modulesDir = join(profileDir, 'node_modules')
-  const hasModules = existsSync(modulesDir)
+  // An empty node_modules is not a materialized layout. pnpm leaves the directory
+  // behind — and writes no .modules.yaml — for a profile that declares no
+  // dependencies, so counting it as "has modules" made this predicate unsatisfiable:
+  // every boot re-ran the migration and the migration could never satisfy it.
+  const hasModules = existsSync(modulesDir) && directoryHasEntries(modulesDir)
   if (!hasDependencies && !hasModules) return false
 
   let modulesCompatible = false

@@ -333,6 +333,19 @@ virtualStoreDirMaxLength: 120
     expect(prepared.requiresDependencyMigration).toBe(false)
   })
 
+  it('does not migrate a Profile that declares no dependencies and left an empty node_modules', () => {
+    const home = temporaryHome()
+    const dir = ensureDesktopProfile(home)
+    // A dependency-free Profile keeps the directory but pnpm writes no metadata into
+    // it, so "has modules" must not be inferred from the directory alone: doing so
+    // made the migration predicate unsatisfiable and re-ran it on every boot.
+    mkdirSync(join(dir, 'node_modules'), { recursive: true })
+
+    const prepared = prepareDesktopProfile(undefined, home, 'darwin')
+
+    expect(prepared.requiresDependencyMigration).toBe(false)
+  })
+
   it('migrates a hoisted Profile dependency tree created by pnpm 9', () => {
     const home = temporaryHome()
     const dir = ensureDesktopProfile(home)

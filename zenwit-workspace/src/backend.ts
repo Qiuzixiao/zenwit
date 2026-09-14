@@ -2,7 +2,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import {
-  existsSync, linkSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync, type Dirent,
+  createReadStream, existsSync, linkSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, extname, join, relative, resolve, sep, isAbsolute } from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -12,7 +12,16 @@ import { DocumentRecoveryStore } from './document-recovery.js'
 import { normalizeProjectTags, readProjectTags, type ProjectSummary } from './types.js'
 import { BodyTooLargeError, isJsonRequest, isSameOriginLoopbackRequest, readJson } from './http-security.js'
 
+import { detectEncoding, encodeText, isSupportedEncoding } from './encoding.js'
+import { scanProjectResources, scanProjectTree } from './structure-scan.js'
 import { ProjectRegistry } from './registry.js'
+
+/**
+ * Entry budget for one scan response. The web client holds a whole structure or
+ * resource response in renderer state, so an unbounded walk lets a large project
+ * grow that state without limit; scans stop at the budget and report truncation.
+ */
+const MAX_SCAN_ENTRIES = 50_000
 
 export interface WorkspaceOptions {
   /** Private application data, independent of the kernel and desktop. */
@@ -25,20 +34,83 @@ export interface WorkspaceOptions {
 
 export const PROJECT_API_PATHS = ['', '/adopt', '/forget', '/delete', '/structure', '/resources', '/node', '/import', '/changes', '/file', '/reveal', '/terminal'].map(suffix => '/api/desktop/projects' + suffix)
 
-export interface TreeNode {
-  name: string
-  path: string
-  kind: 'file' | 'dir'
-  /** Word count for .md files, byte size for others, '' for directories. */
-  detail: string
-  children?: TreeNode[]
+export type { TreeNode, ProjectResource } from './structure-scan.js'
+
+/** Media types the lazy content channel may serve inline; everything else stays an attachment. */
+const STREAM_MEDIA_TYPES: Readonly<Record<string, string>> = {
+  mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/quicktime',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', oga: 'audio/ogg', m4a: 'audio/mp4',
+  aac: 'audio/aac', flac: 'audio/flac', opus: 'audio/opus',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+  bmp: 'image/bmp', ico: 'image/x-icon', pdf: 'application/pdf',
 }
 
-export interface ProjectResource {
-  name: string
-  path: string
-  kind: 'file'
-  detail: string
+/** Resolve the declared media type for a streamed file; unknown types stay octet-stream. */
+function streamMediaType(file: string): string {
+  return STREAM_MEDIA_TYPES[extname(file).slice(1).toLowerCase()] ?? 'application/octet-stream'
+}
+
+/** Whether a media type may be served inline; active content keeps the sandbox-asset policy. */
+function isInlineStreamType(mediaType: string): boolean {
+  if (mediaType.startsWith('video/') || mediaType.startsWith('audio/')) return true
+  if (mediaType === 'application/pdf') return true
+  return /^image\/(?:png|jpeg|gif|webp|bmp|x-icon)$/u.test(mediaType)
+}
+
+/**
+ * Parse a single-range `bytes=` request header.
+ * @param header - the raw Range header value.
+ * @param size - complete file size.
+ * @returns the inclusive byte range, or undefined when absent, malformed, or unsatisfiable.
+ */
+function parseRange(header: string, size: number): { start: number; end: number } | undefined {
+  const match = /^bytes=(\d*)-(\d*)$/u.exec(header.trim())
+  if (match === null) return undefined
+  const startText = match[1] ?? ''
+  const endText = match[2] ?? ''
+  if (startText === '' && endText === '') return undefined
+  if (startText === '') {
+    const suffix = Number(endText)
+    if (!Number.isInteger(suffix) || suffix <= 0) return undefined
+    return { start: Math.max(0, size - suffix), end: size - 1 }
+  }
+  const start = Number(startText)
+  if (!Number.isInteger(start) || start >= size) return undefined
+  const end = endText === '' ? size - 1 : Math.min(Number(endText), size - 1)
+  if (!Number.isInteger(end) || end < start) return undefined
+  return { start, end }
+}
+
+/** Stream one file with real MIME, ETag, Last-Modified, conditional requests and byte ranges. */
+function streamProjectFile(req: IncomingMessage, res: ServerResponse, file: string, size: number, mtimeMs: number): void {
+  const mediaType = streamMediaType(file)
+  const inline = isInlineStreamType(mediaType)
+  const etag = `"${size.toString(16)}-${Math.floor(mtimeMs).toString(16)}"`
+  if (!inline) {
+    // Active content keeps the sandbox-asset policy even when requested through the stream route.
+    res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment',
+      'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
+      'content-security-policy': "sandbox; default-src 'none'", 'content-length': String(size) })
+    createReadStream(file).pipe(res)
+    return
+  }
+  const base = { 'content-type': mediaType, 'content-disposition': 'inline', 'cache-control': 'no-cache',
+    'x-content-type-options': 'nosniff', 'accept-ranges': 'bytes', etag, 'last-modified': new Date(mtimeMs).toUTCString() }
+  if (req.headers['if-none-match'] === etag) { res.writeHead(304, base); res.end(); return }
+  const rangeHeader = req.headers.range
+  const range = typeof rangeHeader === 'string' ? parseRange(rangeHeader, size) : undefined
+  if (typeof rangeHeader === 'string' && range === undefined) {
+    res.writeHead(416, { ...base, 'content-range': `bytes */${size}` })
+    res.end()
+    return
+  }
+  if (range !== undefined) {
+    res.writeHead(206, { ...base, 'content-length': String(range.end - range.start + 1), 'content-range': `bytes ${range.start}-${range.end}/${size}` })
+    createReadStream(file, { start: range.start, end: range.end }).pipe(res)
+    return
+  }
+  res.writeHead(200, { ...base, 'content-length': String(size) })
+  createReadStream(file).pipe(res)
 }
 
 export function createWorkspaceBackend(options: WorkspaceOptions) {
@@ -270,84 +342,6 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
     return finishJson(res, 405, { error: 'method not allowed' })
   }
 
-  /** Rough word count (CJK chars + Latin words) for a markdown file. */
-  function wordCount(file: string): number {
-    try {
-      const text = readFileSync(file, 'utf8')
-      const cjk = text.match(/[一-鿿]/g)?.length ?? 0
-      const latin = text.split(/\s+/).filter(w => /[A-Za-z0-9]/.test(w)).length
-      return cjk + latin
-    } catch {
-      return 0
-    }
-  }
-
-  function formatBytes(bytes: number): string {
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-  }
-
-  function fileDetail(file: string): string {
-    try {
-      return extname(file) === '.md' ? wordCount(file) + ' 字' : formatBytes(statSync(file).size)
-    } catch {
-      return ''
-    }
-  }
-
-  /** Recursively scan user-facing project content (skips private state and generated manifest files). */
-  function scanDir(dir: string, depth = 0): TreeNode[] {
-    if (depth > 8) return []
-    let entries: Dirent[] = []
-    try {
-      entries = readdirSync(dir, { withFileTypes: true })
-        .filter(e => !e.isSymbolicLink() && (e.isFile() || e.isDirectory()) && e.name !== '.DS_Store'
-          && !e.name.startsWith('.'))
-    } catch {
-      return []
-    }
-    const dirs = entries.filter(e => e.isDirectory())
-    const files = entries.filter(e => !e.isDirectory())
-    const ordered = [...dirs, ...files].sort((a, b) => a.name.localeCompare(b.name))
-    return ordered.map(e => {
-      const full = join(dir, e.name)
-      if (e.isDirectory()) {
-        return { name: e.name, path: full, kind: 'dir' as const, detail: '', children: scanDir(full, depth + 1) }
-      }
-      return {
-        name: extname(e.name) === '.md' ? e.name.replace(/\.md$/, '') : e.name,
-        path: full,
-        kind: 'file' as const,
-        detail: fileDetail(full),
-      }
-    })
-  }
-
-  /** Flatten user-editable text files for the @ resource picker. */
-  function scanResources(dir: string, root: string, depth = 0): ProjectResource[] {
-    if (depth > 8) return []
-    let entries: Dirent[] = []
-    try {
-      entries = readdirSync(dir, { withFileTypes: true })
-        .filter(e => !e.isSymbolicLink() && (e.isFile() || e.isDirectory()) && e.name !== '.DS_Store' && !e.name.startsWith('.'))
-    } catch {
-      return []
-    }
-    const result: ProjectResource[] = []
-    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-      const full = join(dir, entry.name)
-      if (entry.isDirectory()) {
-        result.push(...scanResources(full, root, depth + 1))
-        continue
-      }
-      if (!/\.(?:md|markdown|txt|json|yaml|yml)$/iu.test(entry.name)) continue
-      const relativePath = relative(root, full).split(sep).join('/')
-      result.push({ name: relativePath, path: full, kind: 'file', detail: fileDetail(full) })
-    }
-    return result
-  }
-
   /** Reject symlinks (including dangling links) in every component. */
   function canonicalPath(p: string): string {
     if (!isAbsolute(p) || (sep !== '\\' && p.includes('\\')) || p.includes('\0') || hasTraversalSegment(p)) throw new PathError('invalid absolute path')
@@ -528,7 +522,7 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
 
   /**
    * GET /api/desktop/projects/structure?path=<projectDir> — recursively map the
-   * project's real file tree onto the structure surface.
+   * project's real file tree onto the structure surface, bounded by the entry budget.
    */
   async function handleProjectLibraryStructureRequest(req: IncomingMessage, res: ServerResponse, expectedOrigin: string): Promise<void> {
     if (req.method !== 'GET') return finishJson(res, 405, { error: 'method not allowed' })
@@ -544,8 +538,11 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
     const metadata = (() => {
       try { return readMetadata(projectPath) as { agentId?: unknown } } catch { return {} }
     })()
-    const tree = scanDir(projectPath)
-    return finishJson(res, 200, { path: projectPath, tree, root: basename(projectPath), ...(typeof metadata.agentId === 'string' ? { agentId: metadata.agentId } : {}) })
+    const scan = scanProjectTree(projectPath, MAX_SCAN_ENTRIES)
+    return finishJson(res, 200, {
+      path: projectPath, tree: scan.entries, root: basename(projectPath), truncated: scan.truncated,
+      ...(typeof metadata.agentId === 'string' ? { agentId: metadata.agentId } : {}),
+    })
   }
 
   /** GET /api/desktop/projects/resources?path=<projectDir> — files for @ references. */
@@ -556,7 +553,8 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
     const projectPath = url.searchParams.get('path')
     if (projectPath === null || projectPath.length === 0) return finishJson(res, 400, { error: 'path query is required' })
     if (!isProjectPath(projectPath)) return finishJson(res, 403, { error: 'path outside project library' })
-    return finishJson(res, 200, { resources: scanResources(projectPath, projectPath) })
+    const scan = scanProjectResources(projectPath, projectPath, MAX_SCAN_ENTRIES)
+    return finishJson(res, 200, { resources: scan.entries, truncated: scan.truncated })
   }
 
   /** Subscribe to filesystem changes for one authenticated project workspace. */
@@ -572,6 +570,26 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
       res.once('close', () => subscriptions.delete(dispose))
     }
     catch { finishJson(res, 503, { error: 'file notifications unavailable' }) }
+  }
+
+  /**
+   * Resolve a `relative` reference against the current target with the same
+   * containment the direct path obeys.
+   * @param projectRoot - enclosing project root.
+   * @param target - the already-canonicalized request target.
+   * @param related - raw `relative` query value, or null.
+   * @returns the resolved target, or the refusal status and message.
+   */
+  function resolveRelatedTarget(projectRoot: string, target: string, related: string | null): { target: string } | { error: string; status: number } {
+    if (related === null) return { target }
+    if (related === '' || /^(?:[a-z][a-z\d+.-]*:|[/\\])/iu.test(related) || related.includes('\\') || related.includes('\0')) {
+      return { error: 'relative file path required', status: 400 }
+    }
+    const resolved = canonicalPath(resolve(dirname(target), related))
+    if (!resolved.startsWith(projectRoot + sep) || isInsideStateDir(projectRoot, resolved)) {
+      return { error: 'related file outside project', status: 403 }
+    }
+    return { target: resolved }
   }
 
   /**
@@ -591,20 +609,18 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
     if (project === undefined) return finishJson(res, 403, { error: 'path outside a project' })
     let target = canonicalPath(filePath)
     if (isInsideStateDir(project, target)) return finishJson(res, 403, { error: 'cannot access project metadata' })
-    if (req.method === 'GET' && url.searchParams.get('raw') === '1') {
-      const related = url.searchParams.get('relative')
-      if (related !== null) {
-        if (related === '' || /^(?:[a-z][a-z\d+.-]*:|[/\\])/iu.test(related) || related.includes('\\') || related.includes('\0')) {
-          return finishJson(res, 400, { error: 'relative file path required' })
-        }
-        target = canonicalPath(resolve(dirname(target), related))
-        if (!target.startsWith(project + sep) || isInsideStateDir(project, target)) {
-          return finishJson(res, 403, { error: 'related file outside project' })
-        }
-      }
+    if (req.method === 'GET' && (url.searchParams.get('raw') === '1' || url.searchParams.get('stream') === '1')) {
+      const resolved = resolveRelatedTarget(project, target, url.searchParams.get('relative'))
+      if ('error' in resolved) return finishJson(res, resolved.status, { error: resolved.error })
+      target = resolved.target
       if (!existsSync(target)) return finishJson(res, 404, { error: 'file not found' })
       const info = statSync(target)
       if (!info.isFile()) return finishJson(res, 400, { error: 'path must be a regular file' })
+      if (url.searchParams.get('stream') === '1') {
+        // The lazy content channel streams the whole file; the 100 MiB read cap does not apply.
+        streamProjectFile(req, res, target, info.size, info.mtimeMs)
+        return
+      }
       if (info.size > MAX_PROJECT_IMPORT_BYTES) return finishJson(res, 413, { error: 'file is larger than 100 MiB' })
       const bytes = readFileSync(target)
       if (bytes.length > MAX_PROJECT_IMPORT_BYTES) return finishJson(res, 413, { error: 'file is larger than 100 MiB' })
@@ -619,17 +635,21 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
       const exists = existsSync(target)
       if (exists && !statSync(target).isFile()) return finishJson(res, 400, { error: 'path must be a regular file' })
       let disk: string | null = null
+      let encoding = 'utf-8'
       if (exists) {
-        const bytes = readFileSync(target)
-        try { disk = new TextDecoder('utf-8', { fatal: true }).decode(bytes) }
-        catch { return finishJson(res, 415, { error: 'file is not UTF-8 text; use binary preview' }) }
-        if (bytes.includes(0) || /\.(?:pdf|png|jpe?g|gif|webp|bmp|ico)$/iu.test(target)) {
+        if (/\.(?:pdf|png|jpe?g|gif|webp|bmp|ico)$/iu.test(target)) {
           return finishJson(res, 415, { error: 'binary files cannot be edited as text' })
         }
+        const bytes = readFileSync(target)
+        const detected = detectEncoding(bytes)
+        if (detected === undefined) return finishJson(res, 415, { error: 'file is not recognized text; use binary preview' })
+        encoding = detected.encoding
+        try { disk = new TextDecoder(encoding, { fatal: true }).decode(bytes) }
+        catch { return finishJson(res, 415, { error: 'file text encoding could not be decoded; use binary preview' }) }
       }
       res.setHeader('Cache-Control', 'no-store')
       if (req.method === 'GET' && url.searchParams.get('sync') === '1') {
-        return finishJson(res, exists ? 200 : 404, { content: disk })
+        return finishJson(res, exists ? 200 : 404, { content: disk, encoding })
       }
       const record = store.read(project, target)
       if (req.method === 'GET') {
@@ -637,7 +657,7 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
           store.checkpoint(record, disk)
           store.update(project, record)
         }
-        return finishJson(res, exists ? 200 : 404, { content: disk, recovery: record.draft ?? null, versions: record.versions })
+        return finishJson(res, exists ? 200 : 404, { content: disk, recovery: record.draft ?? null, versions: record.versions, encoding })
       }
       if (b.action === 'discard-draft') {
         if (b.expectedDraft === undefined || record.draft?.content === b.expectedDraft) delete record.draft
@@ -669,15 +689,16 @@ export function createWorkspaceBackend(options: WorkspaceOptions) {
       {
         const tmp = join(parent, '.' + basename(target) + '.' + randomBytes(6).toString('hex') + '.tmp')
         try {
-          writeFileSync(tmp, b.content, { flag: 'wx', mode: 0o600 })
+          const requestedEncoding = isSupportedEncoding(b.encoding) ? b.encoding : 'utf-8'
+          writeFileSync(tmp, encodeText(b.content, requestedEncoding), { flag: 'wx', mode: 0o600 })
           // Detect writers that changed the file while the recovery copy was being written.
           canonicalPath(target)
-          const current = existsSync(target) ? readFileSync(target, 'utf8') : null
+          const current = existsSync(target) ? new TextDecoder(encoding).decode(readFileSync(target)) : null
           if (current !== disk) return finishJson(res, 409, { error: 'file changed externally', content: current })
           if (disk === null) {
             try { linkSync(tmp, target) }
             catch (error) {
-              if ((error as NodeJS.ErrnoException).code === 'EEXIST') return finishJson(res, 409, { error: 'file changed externally', content: readFileSync(target, 'utf8') })
+              if ((error as NodeJS.ErrnoException).code === 'EEXIST') return finishJson(res, 409, { error: 'file changed externally', content: new TextDecoder(encoding).decode(readFileSync(target)) })
               throw error
             }
           } else renameSync(tmp, target)

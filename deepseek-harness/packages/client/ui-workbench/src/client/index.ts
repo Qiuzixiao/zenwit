@@ -15,6 +15,8 @@ import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { FileRequest, Panel, WorkbenchInjected, WorkbenchFiles } from './contract.ts'
 import { WorkbenchFrame } from './WorkbenchFrame.tsx'
+import { createDocumentRenderers } from './document-renderers.ts'
+import { registerBuiltinRenderers } from './builtin-renderers.ts'
 import { projectApi } from './project-api.ts'
 import { resolveFilePath } from './workspace-files.ts'
 import { en, zh } from './locales.ts'
@@ -23,6 +25,13 @@ export type { WorkbenchFiles } from './contract.ts'
 
 /** Required typed capabilities; visual owners arrive through declared slots. */
 export const inject = ['slots', 'locale', 'layout', 'sessions', 'workspaces', 'uiWorkspace', 'conversation', 'inputTriggers']
+
+/**
+ * Window that collapses a burst of project filesystem changes into one revision
+ * bump. Consumers answer a bump with a full structure reload, so the window
+ * bounds scans per second instead of per changed file.
+ */
+const FILE_CHANGE_COALESCE_MS = 250
 
 /**
  * Install the standalone root and its file-link service with fiber-owned teardown.
@@ -34,6 +43,8 @@ export function apply(ctx: Context): void {
   const fileRequest = createSnapshotStore<FileRequest | null>(null)
   const panels = createSnapshotStore<readonly Panel[]>([])
   const fileRevision = createSnapshotStore(0)
+  const documentRenderers = createDocumentRenderers()
+  const documentRendererRevision = createSnapshotStore(0)
   let sequence = 0
   const files: WorkbenchFiles = {
     openFile(url, line) {
@@ -48,6 +59,12 @@ export function apply(ctx: Context): void {
     const dispose = ctx.reflect.provide('workbenchFiles', files)
     return () => { void dispose() }
   }, 'workbench: file links')
+  ctx.effect(() => {
+    const offRevision = documentRenderers.subscribe(() => documentRendererRevision.set(documentRenderers.revision))
+    const disposeBuiltins = registerBuiltinRenderers(documentRenderers)
+    const dispose = ctx.reflect.provide('documentRenderers', documentRenderers)
+    return () => { offRevision(); void dispose(); disposeBuiltins() }
+  }, 'workbench: document renderers')
   ctx.effect(() => ctx.inputTriggers.registerSource({
     trigger: '@', name: 'workbench-selection', order: -1,
     candidates: async () => [], onPick: () => undefined,
@@ -65,6 +82,13 @@ export function apply(ctx: Context): void {
   ctx.effect(() => {
     let projectPath: string | undefined
     let events: EventSource | undefined
+    let pending: ReturnType<typeof setTimeout> | undefined
+    // One project scan costs the host a full tree walk, so a burst of change
+    // events (a build writing thousands of files) must not drive one scan each.
+    const bump = (): void => {
+      pending = undefined
+      fileRevision.set(fileRevision.getSnapshot() + 1)
+    }
     const follow = (): void => {
       const list = ctx.sessions.list.getSnapshot()
       const next = list.current === undefined ? undefined : list.byId[list.current]?.cwd
@@ -74,11 +98,17 @@ export function apply(ctx: Context): void {
       projectPath = next
       if (next === undefined || typeof EventSource === 'undefined') return
       events = new EventSource('/api/desktop/projects/changes?path=' + encodeURIComponent(next))
-      events.onmessage = () => fileRevision.set(fileRevision.getSnapshot() + 1)
+      events.onmessage = () => {
+        if (pending === undefined) pending = setTimeout(bump, FILE_CHANGE_COALESCE_MS)
+      }
     }
     const offSessions = ctx.sessions.list.subscribe(follow)
     follow()
-    return () => { offSessions(); events?.close() }
+    return () => {
+      offSessions()
+      events?.close()
+      if (pending !== undefined) clearTimeout(pending)
+    }
   }, 'workbench: project change feed')
   const detachWorkspace = async (path: string): Promise<void> => {
     const workspace = ctx.workspaces.list.getSnapshot().items.find(item => item.path === path)
@@ -95,6 +125,7 @@ export function apply(ctx: Context): void {
       async forget(path) { await projectApi.forget(path); await detachWorkspace(path) },
     },
     request: (input, init) => fetch(input, init),
+    documentRenderers,
     async openProject(path) {
       if (ctx.sessions.list.getSnapshot().phase !== 'ready' || ctx.workspaces.list.getSnapshot().phase !== 'ready') throw new Error(t('pending'))
       const navigation = ctx.layout.beginNavigation()
@@ -147,7 +178,7 @@ export function apply(ctx: Context): void {
       if (!inserted) throw new Error(t('failed'))
       if (target === 'new') ctx.uiWorkspace.openSession(id)
     },
-    hooks: { panels, fileRequest, fileRevision, navigation: ctx.uiWorkspace.navigation, pendingActions: ctx.uiWorkspace.pendingActions },
+    hooks: { panels, fileRequest, fileRevision, documentRendererRevision, navigation: ctx.uiWorkspace.navigation, pendingActions: ctx.uiWorkspace.pendingActions },
   }
   ctx.effect(() => ctx.slots.register({
     name: 'root', locale: 'workbench',

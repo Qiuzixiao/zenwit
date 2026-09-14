@@ -4,7 +4,7 @@
  * visual Markdown editing with an opt-in CodeMirror source mode. Right: session
  * controls plus the reused DSH conversation. Both column boundaries resize.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import type { PropsRuntime, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots';
 import type { SessionId } from '@deepseek-ai/dsh-session/types';
@@ -15,7 +15,8 @@ import { IconNewChatOutline16 } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ChevronDown, ChevronRight, File, FileJson, FileText, Folder, FolderOpen, History, X, FilePlus, FolderPlus, RefreshCw, ChevronsDownUp, Copy, Pencil, Trash2, MessageSquare, Code2, Eye, Save, FolderSearch, MoreHorizontal, Terminal, Undo2, Redo2, Search, ChevronUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, } from 'lucide-react';
 import { Editor, VisualEditor, type DocumentSelection, type EditorHistory, type EditorNavigation } from './Editor.tsx';
 import css from './workbench.module.css';
-import { documentKind, hasDocumentPreview, isBinaryDocument } from './document-types.ts';
+import { describeWorkbenchDocument, selectedView } from './document-capabilities.ts';
+import type { DocumentRenderers } from './document-renderers.ts';
 import { DocumentPreview } from './preview/DocumentPreview.tsx';
 import { ScrollDots } from './ScrollDots.tsx';
 import { nodePath, nodeBasename, descendantSuffix, isProjectFilePath, readPersistedTabs, flattenFiles, filterTree, DOCUMENT_TABS_STORAGE_PREFIX } from './workspace-files.ts';
@@ -31,7 +32,7 @@ interface ContextMenuState {
     y: number;
 }
 /** One workspace pane props. */
-export type WorkspaceProps = PropsRuntime<'root'> & PropsRenderSlots<'main' | 'sidebar.settings' | 'sidebar.footer.action'> & CopyProps & Pick<WorkbenchProps, 'searchSessions' | 'renameSession' | 'archiveSession' | 'forkSession' | 'usePendingActions' | 'useNavigation' | 'guardNavigation'> & {
+export type WorkspaceProps = PropsRuntime<'root'> & PropsRenderSlots<'main' | 'sidebar.settings' | 'sidebar.footer.action'> & CopyProps & Pick<WorkbenchProps, 'searchSessions' | 'renameSession' | 'archiveSession' | 'forkSession' | 'usePendingActions' | 'useNavigation' | 'useDocumentRendererRevision' | 'guardNavigation'> & {
     projectPath: string;
     closeProject: () => Promise<void>;
     registerCloseRequest?: (request: () => void) => () => void;
@@ -39,6 +40,7 @@ export type WorkspaceProps = PropsRuntime<'root'> & PropsRenderSlots<'main' | 's
     startSession: (workspaceId: WorkspaceId) => void;
     addSelectionToConversation: (target: 'current' | 'new', context: string, label?: string, path?: string) => Promise<void>;
     request: typeof fetch;
+    documentRenderers: DocumentRenderers;
     fileRequest: FileRequest | null;
     fileRevision: number;
 };
@@ -51,6 +53,16 @@ const RIGHT_COLLAPSE = 200;
 const RIGHT_EXPAND = 240;
 const COLLAPSED_WIDTH = 48;
 const CENTER_MIN = 240;
+/**
+ * Rows one tree render may create. A filter query that matches most of a large
+ * project expands every directory and used to build an element per node — 19,350
+ * nodes on a real repository, none of it bounded — which blocked the renderer for
+ * seconds per pass and grew its heap until V8 ran out of memory. The tree stops at
+ * the budget and says so; narrow the query to see the rest.
+ */
+const TREE_RENDER_LIMIT = 400;
+/** Result rows the quick-open dialog may create; the query narrows the rest. */
+const QUICK_OPEN_LIMIT = 100;
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
 }
@@ -102,7 +114,7 @@ function ResizeHandle({ label, value, onStart, onDrag }: ResizeHandleProps) {
 }
 /** Three-pane workspace (see module doc). */
 export function Workspace(props: WorkspaceProps) {
-    const { projectPath, closeProject, renderSlot, useSessions, useWorkspaces, usePanelInfo, startSession, addSelectionToConversation, request, fileRequest, fileRevision, t } = props;
+    const { projectPath, closeProject, renderSlot, useSessions, useWorkspaces, usePanelInfo, startSession, addSelectionToConversation, request, documentRenderers, fileRequest, fileRevision, t } = props;
     const activePanel = usePanelInfo(state => state.activePanelId);
     const sessionsState = useSessions(s => s);
     const workspaceState = useWorkspaces(s => s);
@@ -183,23 +195,43 @@ export function Workspace(props: WorkspaceProps) {
     const documentsRef = useRef(documents);
     const tabsRestoredRef = useRef(false);
     documentsRef.current = documents;
+    // Latest-callback ref: the registration effect below keys on this identity, so it
+    // must not move when a caller passes a fresh arrow (that would re-register forever).
+    const closeProjectRef = useRef(closeProject);
+    closeProjectRef.current = closeProject;
     const requestClose = useCallback(() => {
         if (documentsRef.current.some(document => document.dirty || document.saving)) setLeaving(true);
-        else void closeProject();
-    }, [closeProject]);
+        else void closeProjectRef.current();
+    }, []);
     useEffect(() => props.registerCloseRequest?.(requestClose), [props.registerCloseRequest, requestClose]);
     const savingPaths = useRef(new Set<string>());
     const composing = useRef(false);
     const [conflictOpen, setConflictOpen] = useState(false);
     const syncNow = useRef<() => void>(() => { });
+    const documentRendererRevision = props.useDocumentRendererRevision(value => value);
     const activeDocument = documents.find(document => document.path === activePath) ?? null;
-    const activeIsMarkdown = activeDocument !== null && documentKind(activeDocument.path) === 'markdown';
-    const activeIsBinary = activeDocument !== null && isBinaryDocument(activeDocument.path);
+    const activeWorkbench = useMemo(
+        () => (activeDocument === null ? null : describeWorkbenchDocument(documentRenderers, activeDocument.path)),
+        [activeDocument, documentRenderers, documentRendererRevision],
+    );
+    const activeViews = activeWorkbench?.views ?? [];
+    const activeIsMarkdown = activeWorkbench?.editor === 'markdown';
+    const activeIsBinary = activeWorkbench !== null && activeWorkbench.descriptor.storage === 'binary';
+    const activeSelectedView = activeDocument === null ? undefined : selectedView(activeViews, activeDocument.visualMode);
+    const activeFallback = activeWorkbench?.fallback;
     const navigation = activePath === null ? null : editorNavigation[activePath];
     const countText = (text: string) => [...text.replace(/\s/gu, '')].length;
     const wordCount = countText(navigation?.text() ?? activeDocument?.draft ?? '');
     const headings = navigation?.headings() ?? [];
-    const quickFiles = flattenFiles(structure?.tree ?? []).filter(node => node.path.slice(projectPath.length + 1).toLocaleLowerCase().includes(quickQuery.toLocaleLowerCase()));
+    // Both walks visit every node, so each is derived from its own inputs rather than once per render.
+    const projectFiles = useMemo(() => flattenFiles(structure?.tree ?? []), [structure]);
+    const quickFiles = useMemo(
+        () => projectFiles.filter(node => node.path.slice(projectPath.length + 1).toLocaleLowerCase().includes(quickQuery.toLocaleLowerCase())),
+        [projectFiles, projectPath, quickQuery],
+    );
+    // Navigation indexes the rendered rows, so the capped list is the one the dialog drives.
+    const quickVisible = useMemo(() => quickFiles.slice(0, QUICK_OPEN_LIMIT), [quickFiles]);
+    const visibleTree = useMemo(() => filterTree(structure?.tree ?? [], fileQuery), [structure, fileQuery]);
     const runFind = (direction: 'first' | 'next' | 'previous', query = findQuery) => {
         if (activePath === null)
             return;
@@ -231,6 +263,11 @@ export function Workspace(props: WorkspaceProps) {
             const res = await request('/api/desktop/projects/structure?path=' + encodeURIComponent(projectPath));
             if (!res.ok)
                 throw new Error('structure ' + res.status);
+            if (generation !== structureRequest.current) {
+                // Parse is the expensive half of this response; a superseded tree is dropped unread.
+                res.body?.cancel().catch(() => undefined);
+                return null;
+            }
             const data = await res.json() as StructureResponse;
             if (generation !== structureRequest.current)
                 return null;
@@ -293,24 +330,27 @@ export function Workspace(props: WorkspaceProps) {
             return;
         }
         void Promise.all(persisted.documents.map(async (item): Promise<OpenDocument | null> => {
-            if (isBinaryDocument(item.path)) return { ...item, visualMode: true, content: '', draft: '', dirty: false, saving: false, saveStatus: null };
+            const workbench = describeWorkbenchDocument(documentRenderers, item.path);
+            const visualMode = workbench.canSwitchViews ? item.visualMode : workbench.hasPreview;
+            if (workbench.descriptor.storage === 'binary') return { ...item, visualMode, encoding: 'utf-8', content: '', draft: '', dirty: false, saving: false, saveStatus: null };
             try {
                 const response = await request('/api/desktop/projects/file?path=' + encodeURIComponent(item.path));
                 if (!response.ok && response.status !== 404)
                     return null;
                 const body = await response.json() as {
                     content?: unknown;
+                    encoding?: unknown;
                     recovery?: {
                         content: string;
                         baseline: string;
                     };
                 };
                 if (body.content === null && body.recovery)
-                    return { ...item, content: '', draft: body.recovery.content, dirty: true, saving: false, saveStatus: t("legacy.063"), conflict: { content: null } };
+                    return { ...item, visualMode, encoding: typeof body.encoding === 'string' ? body.encoding : 'utf-8', content: '', draft: body.recovery.content, dirty: true, saving: false, saveStatus: t("legacy.063"), conflict: { content: null } };
                 if (typeof body.content !== 'string')
                     return null;
                 const recovery = body.recovery?.content !== body.content ? body.recovery : undefined;
-                return { ...item, content: body.content, draft: recovery?.content ?? body.content, dirty: !!recovery, saving: false, saveStatus: recovery ? t("legacy.064") : null, ...(recovery ? { conflict: { content: body.content } } : {}) };
+                return { ...item, visualMode, encoding: typeof body.encoding === 'string' ? body.encoding : 'utf-8', content: body.content, draft: recovery?.content ?? body.content, dirty: !!recovery, saving: false, saveStatus: recovery ? t("legacy.064") : null, ...(recovery ? { conflict: { content: body.content } } : {}) };
             }
             catch {
                 return null;
@@ -383,7 +423,7 @@ export function Workspace(props: WorkspaceProps) {
             }
             const target = event.target instanceof HTMLElement ? event.target : null;
             const isEditorTarget = (target !== null && target.closest('[contenteditable="true"]') !== null) || event.target === window || event.target === document.body;
-            if (mod && event.key.toLowerCase() === 'f' && activeIsMarkdown && activeDocument?.visualMode && !quickOpen && isEditorTarget) {
+            if (mod && event.key.toLowerCase() === 'f' && activeIsMarkdown && activeSelectedView === 'preview' && !quickOpen && isEditorTarget) {
                 event.preventDefault();
                 setContentSearchOpen(true);
                 window.requestAnimationFrame(() => { findInput.current?.focus(); findInput.current?.select(); });
@@ -402,7 +442,7 @@ export function Workspace(props: WorkspaceProps) {
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [activeDocument?.visualMode, navigation, quickOpen, contentSearchOpen]);
+    }, [activeSelectedView, navigation, quickOpen, contentSearchOpen]);
     useEffect(() => {
         if (!tabsRestoredRef.current)
             return;
@@ -435,7 +475,7 @@ export function Workspace(props: WorkspaceProps) {
             running = true;
             try {
                 await Promise.all(documentsRef.current.map(async (snapshot) => {
-                    if (isBinaryDocument(snapshot.path) || savingPaths.current.has(snapshot.path))
+                    if (describeWorkbenchDocument(documentRenderers, snapshot.path).descriptor.storage === 'binary' || savingPaths.current.has(snapshot.path))
                         return;
                     try {
                         const response = await request('/api/desktop/projects/file?sync=1&path=' + encodeURIComponent(snapshot.path), { cache: 'no-store' });
@@ -501,8 +541,9 @@ export function Workspace(props: WorkspaceProps) {
             syncNow.current();
             return true;
         }
-        if (isBinaryDocument(path)) {
-            setDocuments(previous => previous.some(item => item.path === path) ? previous : [...previous, { path, name, content: '', draft: '', dirty: false, saving: false, saveStatus: null, visualMode: true }]);
+        const workbench = describeWorkbenchDocument(documentRenderers, path);
+        if (workbench.descriptor.storage === 'binary') {
+            setDocuments(previous => previous.some(item => item.path === path) ? previous : [...previous, { path, name, encoding: 'utf-8', content: '', draft: '', dirty: false, saving: false, saveStatus: null, visualMode: workbench.hasPreview }]);
             setActivePath(path);
             return true;
         }
@@ -510,11 +551,12 @@ export function Workspace(props: WorkspaceProps) {
             const res = await request('/api/desktop/projects/file?path=' + encodeURIComponent(path));
             if (res.status === 404) {
                 const body = await res.json() as {
+                    encoding?: unknown;
                     recovery?: {
                         content: string;
                     };
                 };
-                setDocuments(previous => previous.some(item => item.path === path) ? previous : [...previous, { path, name, content: '', draft: body.recovery?.content ?? '', dirty: !!body.recovery, saving: false, saveStatus: null, visualMode: hasDocumentPreview(path), conflict: { content: null } }]);
+                setDocuments(previous => previous.some(item => item.path === path) ? previous : [...previous, { path, name, encoding: typeof body.encoding === 'string' ? body.encoding : 'utf-8', content: '', draft: body.recovery?.content ?? '', dirty: !!body.recovery, saving: false, saveStatus: null, visualMode: workbench.hasPreview, conflict: { content: null } }]);
                 setActivePath(path);
                 return true;
             }
@@ -522,13 +564,14 @@ export function Workspace(props: WorkspaceProps) {
                 throw new Error('read ' + res.status);
             const body = await res.json() as {
                 content: string;
+                encoding?: unknown;
                 recovery?: {
                     content: string;
                     baseline: string;
                 };
             };
             const recovery = body.recovery?.content !== body.content ? body.recovery : undefined;
-            setDocuments(previous => previous.some(item => item.path === path) ? previous : [...previous, { path, name, content: body.content, draft: recovery?.content ?? body.content, dirty: !!recovery, saving: false, saveStatus: recovery ? t("legacy.064") : null, visualMode: hasDocumentPreview(path), ...(recovery ? { conflict: { content: body.content } } : {}) }]);
+            setDocuments(previous => previous.some(item => item.path === path) ? previous : [...previous, { path, name, encoding: typeof body.encoding === 'string' ? body.encoding : 'utf-8', content: body.content, draft: recovery?.content ?? body.content, dirty: !!recovery, saving: false, saveStatus: recovery ? t("legacy.064") : null, visualMode: workbench.hasPreview, ...(recovery ? { conflict: { content: body.content } } : {}) }]);
             setActivePath(path);
             return true;
         }
@@ -536,7 +579,7 @@ export function Workspace(props: WorkspaceProps) {
             setLoadError(t("legacy.068") + String(e instanceof Error ? e.message : e));
             return false;
         }
-    }, []);
+    }, [documentRenderers]);
     const openFileInWorkspace = useCallback(async (path: string): Promise<boolean> => {
         if (!isProjectFilePath(path, projectPath))
             return false;
@@ -571,7 +614,7 @@ export function Workspace(props: WorkspaceProps) {
         expectedContent: string | null;
     }): Promise<boolean> => {
         const file = documentsRef.current.find(document => document.path === path);
-        if (isBinaryDocument(path) || file === undefined || savingPaths.current.has(path) || composing.current || (file.conflict && !override))
+        if (describeWorkbenchDocument(documentRenderers, path).descriptor.storage === 'binary' || file === undefined || savingPaths.current.has(path) || composing.current || (file.conflict && !override))
             return false;
         savingPaths.current.add(path);
         const content = file.draft;
@@ -580,7 +623,7 @@ export function Workspace(props: WorkspaceProps) {
             const res = await request('/api/desktop/projects/file', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ path: file.path, content, expectedContent: override ? override.expectedContent : file.content }),
+                body: JSON.stringify({ path: file.path, content, expectedContent: override ? override.expectedContent : file.content, encoding: file.encoding }),
             });
             if (res.status === 409) {
                 const body = await res.json() as {
@@ -665,7 +708,7 @@ export function Workspace(props: WorkspaceProps) {
             const copyPath = snapshot.path.replace(/(\.[^./\\]+)?$/, t("legacy.074") + crypto.randomUUID() + '$1');
             const result = await request('/api/desktop/projects/file', {
                 method: 'POST', headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ path: copyPath, content: snapshot.draft, expectedContent: null }),
+                body: JSON.stringify({ path: copyPath, content: snapshot.draft, expectedContent: null, encoding: snapshot.encoding }),
             });
             if (!result.ok)
                 throw new Error(t("legacy.075") + result.status);
@@ -984,34 +1027,44 @@ export function Workspace(props: WorkspaceProps) {
         return <File {...iconProps}/>;
     };
     /** Recursive tree render: a folder expands to reveal its real contents. */
-    const renderNodes = (nodes: TreeNode[]): ReactNode[] => nodes.map(node => {
-        const isOpen = fileQuery.trim() !== '' || expanded.has(node.path);
-        const isSelected = node.kind === 'file' && activePath === node.path;
-        const isDirty = node.kind === 'file' && documents.some(document => document.path === node.path && document.dirty);
-        const detail = node.kind === 'dir'
-            ? node.children !== undefined && node.children.length > 0 ? t("legacy.097", { value0: node.children.length }) : ''
-            : node.detail === '0 B' ? t("legacy.098") : node.detail;
-        return (<li key={node.path} role="none">
-        <button type="button" role="treeitem" aria-expanded={node.kind === 'dir' ? isOpen : undefined} aria-current={isSelected ? 'page' : undefined} className={css.structureNode
+    // One shared budget bounds element creation for the whole tree, not just the visible
+    // rows, so a query matching most of a large project can no longer rebuild it.
+    const treeBudget = { remaining: TREE_RENDER_LIMIT };
+    const renderNodes = (nodes: TreeNode[]): ReactNode[] => {
+        const rows: ReactNode[] = [];
+        for (const node of nodes) {
+            if (treeBudget.remaining <= 0)
+                break;
+            treeBudget.remaining -= 1;
+            const isOpen = fileQuery.trim() !== '' || expanded.has(node.path);
+            const isSelected = node.kind === 'file' && activePath === node.path;
+            const isDirty = node.kind === 'file' && documents.some(document => document.path === node.path && document.dirty);
+            const detail = node.kind === 'dir'
+                ? node.children !== undefined && node.children.length > 0 ? t("legacy.097", { value0: node.children.length }) : ''
+                : node.detail === '0 B' ? t("legacy.098") : node.detail;
+            rows.push(<li key={node.path} role="none">
+                <button type="button" role="treeitem" aria-expanded={node.kind === 'dir' ? isOpen : undefined} aria-current={isSelected ? 'page' : undefined} className={css.structureNode
                 + (node.kind === 'dir' ? ' ' + css.structureDir : ' ' + css.structureFile)
                 + (isSelected ? ' ' + css.structureNodeSelected : '')} title={node.path} onClick={() => void onOpenNode(node)} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); setContextMenu({ node, x: event.clientX, y: event.clientY }); }}>
-          <span className={css.structureChevron} aria-hidden="true">
-            {node.kind === 'dir'
+                  <span className={css.structureChevron} aria-hidden="true">
+                    {node.kind === 'dir'
                 ? isOpen ? <ChevronDown size={13} strokeWidth={2}/> : <ChevronRight size={13} strokeWidth={2}/>
                 : null}
-          </span>
-          <span className={css.structureIcon} aria-hidden="true">
-            {node.kind === 'dir'
+                  </span>
+                  <span className={css.structureIcon} aria-hidden="true">
+                    {node.kind === 'dir'
                 ? isOpen ? <FolderOpen size={16} strokeWidth={1.7}/> : <Folder size={16} strokeWidth={1.7}/>
                 : renderFileIcon(node)}
-          </span>
-          <span className={css.structureLabel}>{node.name}</span>
-          {isDirty && <span className={css.structureDirty} title={t("legacy.099")} aria-label={t("legacy.099")}/>}
-          {detail !== '' && <span className={css.structureDetail} aria-hidden="true">{detail}</span>}
-        </button>
-        {node.kind === 'dir' && isOpen && node.children !== undefined && (<ul className={css.structureChildren} role="group">{renderNodes(node.children)}</ul>)}
-      </li>);
-    });
+                  </span>
+                  <span className={css.structureLabel}>{node.name}</span>
+                  {isDirty && <span className={css.structureDirty} title={t("legacy.099")} aria-label={t("legacy.099")}/>}
+                  {detail !== '' && <span className={css.structureDetail} aria-hidden="true">{detail}</span>}
+                </button>
+                {node.kind === 'dir' && isOpen && node.children !== undefined && (<ul className={css.structureChildren} role="group">{renderNodes(node.children)}</ul>)}
+            </li>);
+        }
+        return rows;
+    };
     const resizeLeft = useCallback((delta: number) => {
         setLeftWidth(clamp(leftDragBase.current + delta, LEFT_MIN, LEFT_MAX));
     }, []);
@@ -1053,7 +1106,8 @@ export function Workspace(props: WorkspaceProps) {
         setFileQuery(''); }}/>
           </div>
           <input ref={importPickerRef} type="file" multiple hidden onChange={event => { void importFiles(event); }}/>
-          {structure !== null && fileQuery.trim() !== '' && filterTree(structure.tree, fileQuery).length === 0 && <div className={css.structureError} role="status">{t("legacy.110")}</div>}
+          {structure?.truncated === true && <div className={css.structureError} role="status">{t("structureTruncated")}</div>}
+          {structure !== null && fileQuery.trim() !== '' && visibleTree.length === 0 && <div className={css.structureError} role="status">{t("legacy.110")}</div>}
           {loadError !== null && (<div className={css.structureError} role="alert">
               <span>{loadError}</span>
               <button type="button" onClick={() => void reloadStructure()}>{t("legacy.111")}</button>
@@ -1068,9 +1122,10 @@ export function Workspace(props: WorkspaceProps) {
                 <FileText size={20} strokeWidth={1.5} aria-hidden="true"/>
                 <strong>{t("legacy.113")}</strong>
                 <button type="button" onClick={() => openNodeDialog('file', projectPath)}>{t("legacy.114")}</button>
-              </li>) : renderNodes(filterTree(structure.tree, fileQuery))}
+              </li>) : renderNodes(visibleTree)}
           </ul>
-          {activeIsMarkdown && activeDocument?.visualMode && <div className={css.documentOutline}>
+          {treeBudget.remaining <= 0 && <div className={css.structureError} role="status">{t("treeTruncated", { value0: TREE_RENDER_LIMIT })}</div>}
+          {activeIsMarkdown && activeSelectedView === 'preview' && <div className={css.documentOutline}>
             <button type="button" className={css.documentOutlineHeader} aria-expanded={outlineOpen} aria-controls="workspace-document-outline" aria-label={t("legacy.115", { value0: headings.length })} onClick={() => setOutlineOpen(value => !value)}>
               <span>{t("legacy.116")}</span>
               <span className={css.documentOutlineHeaderMeta}>
@@ -1137,13 +1192,13 @@ export function Workspace(props: WorkspaceProps) {
             </div>
           </div>
           {activeDocument !== null && !activeIsBinary && (<div className={css.editorHeaderActions}>
-              {activeIsMarkdown && activeDocument.visualMode && <div className={css.historyActions} role="group" aria-label={t("legacy.143")}>
+              {activeIsMarkdown && activeSelectedView === 'preview' && <div className={css.historyActions} role="group" aria-label={t("legacy.143")}>
                 <button type="button" title={t("legacy.144")} aria-label={t("legacy.145")} disabled={!editorHistories[activeDocument.path]?.canUndo} onClick={() => editorHistories[activeDocument.path]?.undo()}><Undo2 size={15} aria-hidden="true"/></button>
                 <button type="button" title={t("legacy.146")} aria-label={t("legacy.147")} disabled={!editorHistories[activeDocument.path]?.canRedo} onClick={() => editorHistories[activeDocument.path]?.redo()}><Redo2 size={15} aria-hidden="true"/></button>
               </div>}
-              <button className={css.toggleButton} type="button" disabled={!hasDocumentPreview(activeDocument.path)} aria-label={activeIsMarkdown ? (activeDocument.visualMode ? t("legacy.148") : t("legacy.149")) : (activeDocument.visualMode ? t("sourceEdit") : t("switchPreview"))} title={activeIsMarkdown ? (activeDocument.visualMode ? t("legacy.148") : t("legacy.149")) : (activeDocument.visualMode ? t("sourceEdit") : t("switchPreview"))} onClick={() => setDocuments(previous => previous.map(document => document.path === activeDocument.path ? { ...document, visualMode: !document.visualMode } : document))}>
-                {activeDocument.visualMode ? <Code2 size={14} strokeWidth={1.9} aria-hidden="true"/> : <Eye size={14} strokeWidth={1.9} aria-hidden="true"/>}
-                {activeDocument.visualMode ? t("legacy.150") : activeIsMarkdown ? t("legacy.151") : t("preview")}
+              <button className={css.toggleButton} type="button" disabled={!activeWorkbench?.canSwitchViews} aria-label={activeIsMarkdown ? (activeSelectedView === 'preview' ? t("legacy.148") : t("legacy.149")) : (activeSelectedView === 'preview' ? t("sourceEdit") : t("switchPreview"))} title={activeIsMarkdown ? (activeSelectedView === 'preview' ? t("legacy.148") : t("legacy.149")) : (activeSelectedView === 'preview' ? t("sourceEdit") : t("switchPreview"))} onClick={() => setDocuments(previous => previous.map(document => document.path === activeDocument.path ? { ...document, visualMode: !document.visualMode } : document))}>
+                {activeSelectedView === 'preview' ? <Code2 size={14} strokeWidth={1.9} aria-hidden="true"/> : <Eye size={14} strokeWidth={1.9} aria-hidden="true"/>}
+                {activeSelectedView === 'preview' ? t("legacy.150") : activeIsMarkdown ? t("legacy.151") : t("preview")}
               </button>
               <label className={css.autoSaveToggle} title={t("legacy.152")}>
                 <input type="checkbox" aria-label={t("legacy.153")} checked={autoSave} onChange={event => setAutoSave(event.target.checked)}/>
@@ -1156,9 +1211,16 @@ export function Workspace(props: WorkspaceProps) {
               </button>
             </div>)}
         </div>
+        {activeFallback !== undefined && activeFallback.kind !== 'none' && (<div className={css.editorNotice} role="alert">
+          <span>{activeFallback.kind === 'over-limit' ? t('previewTooLarge') : t('previewFailed')}</span>
+          {activeFallback.kind === 'load-failed' && <button type="button" onClick={() => documentRenderers.retry(activeFallback.id)}>{t('retry')}</button>}
+        </div>)}
         {activeDocument === null ? (<div className={css.editorPlaceholder}>{t("legacy.155")}</div>) : null}
-        {documents.map(document => (<div key={document.path} className={css.documentEditor} hidden={document.path !== activePath}>
-            {isBinaryDocument(document.path) || (document.visualMode && documentKind(document.path) !== 'markdown') ? (<DocumentPreview path={document.path} source={document.draft} revision={fileRevision} request={request} t={t} />) : document.visualMode ? (<VisualEditor initialDoc={document.draft} externalUpdate={document.externalUpdate} onNavigationChange={navigation => setEditorNavigation(previous => ({ ...previous, [document.path]: navigation }))} onHistoryChange={history => setEditorHistories(previous => {
+        {documents.map(document => {
+            const workbench = describeWorkbenchDocument(documentRenderers, document.path);
+            const view = selectedView(workbench.views, document.visualMode);
+            return (<div key={document.path} className={css.documentEditor} hidden={document.path !== activePath}>
+            {view === 'preview' ? (workbench.editor === 'markdown' ? (<VisualEditor initialDoc={document.draft} externalUpdate={document.externalUpdate} onNavigationChange={navigation => setEditorNavigation(previous => ({ ...previous, [document.path]: navigation }))} onHistoryChange={history => setEditorHistories(previous => {
                     const next = { ...previous };
                     if (history === null)
                         delete next[document.path];
@@ -1166,10 +1228,15 @@ export function Workspace(props: WorkspaceProps) {
                         next[document.path] = history;
                     return next;
                 })} onSelectionChange={next => { if (document.path === activePath)
-                setSelection(next === null ? null : { ...next, path: document.path }); }} onChange={draft => setDocuments(previous => previous.map(item => item.path === document.path ? { ...item, draft, dirty: draft !== item.content, saveStatus: null } : item))}/>) : (<Editor path={document.path} initialDoc={document.draft} externalUpdate={document.externalUpdate} mode={documentKind(document.path) === 'markdown' ? 'markdown' : 'text'} reveal={fileRequest?.path === document.path ? fileRequest : null} onSelectionChange={next => { if (document.path === activePath)
-                setSelection(next === null ? null : { ...next, path: document.path }); }} onChange={draft => setDocuments(previous => previous.map(item => item.path === document.path ? { ...item, draft, dirty: draft !== item.content, saveStatus: null } : item))}/>)}
-          </div>))}
-        {contentSearchOpen && activeIsMarkdown && activeDocument?.visualMode && <div className={css.editorFindOverlay} role="search" aria-label={t("legacy.156")}>
+                setSelection(next === null ? null : { ...next, path: document.path }); }} onChange={draft => setDocuments(previous => previous.map(item => item.path === document.path ? { ...item, draft, dirty: draft !== item.content, saveStatus: null } : item))}/>) : (<DocumentPreview descriptor={workbench.descriptor} renderers={documentRenderers} path={document.path} source={document.draft} revision={fileRevision} request={request} t={t} />)) : view === 'source' ? (<Editor path={document.path} initialDoc={document.draft} externalUpdate={document.externalUpdate} mode={workbench.editor === 'markdown' ? 'markdown' : 'text'} reveal={fileRequest?.path === document.path ? fileRequest : null} onSelectionChange={next => { if (document.path === activePath)
+                setSelection(next === null ? null : { ...next, path: document.path }); }} onChange={draft => setDocuments(previous => previous.map(item => item.path === document.path ? { ...item, draft, dirty: draft !== item.content, saveStatus: null } : item))}/>) : (<div className={css.fallbackCard}>
+              <p>{t('previewUnavailable')}</p>
+              <a className={css.fallbackAction} href={'/api/desktop/projects/file?' + new URLSearchParams({ path: document.path, raw: '1' }).toString()} download={document.name}>{t('download')}</a>
+              <button className={css.fallbackAction} type="button" onClick={() => { void request('/api/desktop/projects/reveal', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path: document.path }) }) }}>{t('revealInSystem')}</button>
+            </div>)}
+          </div>);
+        })}
+        {contentSearchOpen && activeIsMarkdown && activeSelectedView === 'preview' && <div className={css.editorFindOverlay} role="search" aria-label={t("legacy.156")}>
           <input autoFocus ref={findInput} aria-label={t("legacy.157")} placeholder={t("legacy.157")} value={findQuery} onChange={event => setFindQuery(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') {
             event.preventDefault();
             runFind(event.shiftKey ? 'previous' : 'next');
@@ -1276,14 +1343,14 @@ export function Workspace(props: WorkspaceProps) {
       <ScrollDots root={workspaceRef} label={t('scroll')}/>
       {quickOpen && <div className={css.quickOpenOverlay} role="presentation" onClick={() => setQuickOpen(false)}><div className={css.quickOpen} role="dialog" aria-modal="true" aria-label={t("legacy.206")} onClick={event => event.stopPropagation()}><div className={css.quickOpenHeading}>{t("legacy.206")}<kbd>{t("legacy.207")}</kbd></div><input autoFocus aria-label={t("legacy.106")} value={quickQuery} onChange={event => { setQuickQuery(event.target.value); setQuickIndex(0); }} onKeyDown={event => { if (event.key === 'ArrowDown') {
         event.preventDefault();
-        setQuickIndex(index => Math.max(0, Math.min(index + 1, quickFiles.length - 1)));
+        setQuickIndex(index => Math.max(0, Math.min(index + 1, quickVisible.length - 1)));
     } if (event.key === 'ArrowUp') {
         event.preventDefault();
         setQuickIndex(index => Math.max(index - 1, 0));
-    } if (event.key === 'Enter' && quickFiles[quickIndex]) {
-        const node = quickFiles[quickIndex]!;
+    } if (event.key === 'Enter' && quickVisible[quickIndex]) {
+        const node = quickVisible[quickIndex]!;
         setQuickOpen(false);
         void openFilePath(node.path, node.name);
-    } }} placeholder={t("legacy.208")}/><div className={css.quickOpenResults}>{quickFiles.length === 0 && <p>{t("legacy.209")}</p>}{quickFiles.map((node, index) => <button type="button" data-quick-result={index === quickIndex ? 'true' : undefined} aria-current={index === quickIndex ? 'true' : undefined} key={node.path} onClick={() => { setQuickOpen(false); void openFilePath(node.path, node.name); }}>{node.name}<span>{node.path.slice(projectPath.length + 1)}</span></button>)}</div></div></div>}
+    } }} placeholder={t("legacy.208")}/><div className={css.quickOpenResults}>{quickFiles.length === 0 && <p>{t("legacy.209")}</p>}{quickVisible.map((node, index) => <button type="button" data-quick-result={index === quickIndex ? 'true' : undefined} aria-current={index === quickIndex ? 'true' : undefined} key={node.path} onClick={() => { setQuickOpen(false); void openFilePath(node.path, node.name); }}>{node.name}<span>{node.path.slice(projectPath.length + 1)}</span></button>)}{quickFiles.length > QUICK_OPEN_LIMIT && <p>{t("quickOpenLimit", { value0: QUICK_OPEN_LIMIT, value1: quickFiles.length })}</p>}</div></div></div>}
     </div>);
 }

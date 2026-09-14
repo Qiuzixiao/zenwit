@@ -2,7 +2,7 @@ import { dirname, resolve } from 'node:path'
 import { pdfBundle } from './pdf-bundle.ts'
 import { clientBundle } from '../tsdown.client.ts'
 
-const bundle = clientBundle('@deepseek-ai/dsh-client-ui-workbench', ['lib/types/index.js'])
+const bundle = clientBundle('@deepseek-ai/dsh-client-ui-workbench', ['lib/types/index.js', 'lib/types/preview.js'])
 
 export default (options: Parameters<typeof bundle>[0]) => bundle(options).map(config => {
   if (config.platform !== 'browser') return config

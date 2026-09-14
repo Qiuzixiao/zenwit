@@ -20,7 +20,11 @@ export function encodeText(text: string): string {
   return encodeBytes(new TextEncoder().encode(text))
 }
 
-/** @param bytes - binary resource. @returns chunked browser-safe base64. */
+/**
+ * Encode binary resource bytes as chunked browser-safe base64.
+ * @param bytes - binary resource.
+ * @returns the base64 payload.
+ */
 export function encodeBytes(bytes: Uint8Array<ArrayBuffer>): string {
   const chunks: string[] = []
   for (let offset = 0; offset < bytes.length; offset += BASE64_CHUNK_BYTES) {

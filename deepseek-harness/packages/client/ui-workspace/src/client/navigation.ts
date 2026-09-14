@@ -21,6 +21,7 @@ export interface WorkspacePendingAction {
   open(): void
 }
 
+/** Workspace archive and directory UI capability consumed across Client UI domains. */
 export interface UiWorkspace {
   /** Explicit foreground navigation; background list updates do not publish here. */
   readonly navigation: ObservableSnapshot<number>

@@ -4,6 +4,8 @@
 .preview iframe { flex: 1; width: 100%; min-height: 0; border: 0; background: white; }
 .image { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 24px; }
 .image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.media { flex: 1; width: 100%; min-height: 0; background: #000; }
+audio.media { align-self: center; margin: 16px; background: transparent; }
 .pdf { flex: 1; min-height: 0; overflow: auto; padding: 16px; background: #8882; }
 .pdfPage { margin: 0 auto 16px; min-height: 120px; text-align: center; }
 .pdfPage canvas { display: block; max-width: 100%; width: var(--pdf-page-width); height: auto; margin: auto; background: white; box-shadow: 0 1px 8px #0002; }

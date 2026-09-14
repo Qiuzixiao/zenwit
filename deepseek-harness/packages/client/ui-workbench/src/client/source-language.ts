@@ -10,10 +10,16 @@ const aliases: Record<string, string> = {
   svg: 'XML', xhtml: 'HTML', mdx: 'Markdown',
 }
 
-/** @param path - file path, including its extension. @returns a lazy grammar, if known. */
+/**
+ * Select the lazy CodeMirror grammar for a file path.
+ * @param path - file path, including its extension.
+ * @returns a lazy grammar, or `undefined` when no language matches.
+ */
 export function sourceLanguage(path: string): LanguageDescription | undefined {
-  const name = path.replaceAll('\\', '/').split('/').at(-1) ?? path
-  const alias = aliases[name.split('.').at(-1)?.toLowerCase() ?? '']
-  return (alias ? LanguageDescription.matchLanguageName(languages, alias, false) : undefined)
+  const normalized = path.replaceAll('\\', '/')
+  const name = normalized.slice(normalized.lastIndexOf('/') + 1)
+  const dot = name.lastIndexOf('.')
+  const alias = aliases[dot === -1 ? '' : name.slice(dot + 1).toLowerCase()]
+  return (alias === undefined ? undefined : LanguageDescription.matchLanguageName(languages, alias, false))
     ?? LanguageDescription.matchFilename(languages, name) ?? undefined
 }

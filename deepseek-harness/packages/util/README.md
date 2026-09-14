@@ -1,5 +1,5 @@
 ---
-description: "Package map for shared utilities: atomic file writes, branded ids, deques, JSON values, harness home paths, launch environment, native commands, output retention, time zones, and timeouts."
+description: "Package map for shared utilities: atomic file writes, branded ids, deques, JSON values, harness home paths, launch environment, media-type classification, native commands, output retention, time zones, and timeouts."
 kind: "package-group"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The `util/` group gives capability packages shared mechanical primitives instead of duplicate implementations. It covers atomic writes, branded ids, deques, lossless JSON values, UUIDs, Harness-home paths, launch environments, outbound proxy policy, native commands, output retention, time-zone canonicalization, and timeout handling. Every root entry here is a library: it registers no product service or event, and the consuming capability retains the business semantics.
+The `util/` group gives capability packages shared mechanical primitives instead of duplicate implementations. It covers atomic writes, branded ids, deques, lossless JSON values, UUIDs, Harness-home paths, launch environments, media-type classification, outbound proxy policy, native commands, output retention, time-zone canonicalization, and timeout handling. Every root entry here is a library: it registers no product service or event, and the consuming capability retains the business semantics.
 
 ## Table of Contents
 
@@ -38,6 +38,7 @@ Each package provides one primitive; open a package page for how to use it.
 | [`atomic-write/`](atomic-write/README.md) | Atomic file replacement and cross-process writer locking |
 | [`native-command/`](native-command/README.md) | Runs host-native commands directly, never through a shell string |
 | [`workspace-path/`](workspace-path/README.md) | Provides browser-safe Workspace path and display helpers |
+| [`media-type/`](media-type/README.md) | Maps filename extensions and leading bytes to MIME types for preview and file services |
 | [`output-retention/`](output-retention/README.md) | Bounds model-facing output and reports exact omission metadata |
 | [`time/`](time/README.md) | Validates and canonicalizes a caller-reported IANA time zone |
 | [`timeout/`](timeout/README.md) | Deadline arithmetic, signal fusion, and timeout-versus-cancel classification |

@@ -39,8 +39,11 @@ export function WorkbenchFrame(props: WorkbenchProps) {
   const [surface, setSurface] = useState<Surface>(initialSurface)
   const [requestWorkspaceClose, setRequestWorkspaceClose] = useState<(() => void) | null>(null)
   const registerWorkspaceClose = useCallback((request: () => void) => {
-    setRequestWorkspaceClose(() => request)
-    return () => setRequestWorkspaceClose(current => current === request ? null : current)
+    // Storing the same request again must not schedule a render: the registration
+    // effect re-runs whenever the callback identity moves, and an unconditional
+    // set here turns that into an endless render loop.
+    setRequestWorkspaceClose(current => (current === request ? current : request))
+    return () => setRequestWorkspaceClose(current => (current === request ? null : current))
   }, [])
   const projectPath = sessions.current === undefined ? undefined : sessions.byId[sessions.current]?.cwd
   useEffect(() => {
@@ -53,7 +56,10 @@ export function WorkbenchFrame(props: WorkbenchProps) {
     setSurface('workspace')
     setActivity(undefined)
   }, [navigation])
-  const home = (): void => { props.goHome(); setSurface('home') }
+  const home = useCallback((): void => { props.goHome(); setSurface('home') }, [props.goHome])
+  // Stable identity: the workspace registers this callback and re-registers when it
+  // changes, so an inline arrow here re-renders the frame on every pass.
+  const closeWorkspace = useCallback(async (): Promise<void> => { home() }, [home])
   const openProject = props.openProject
   const listProjects = useCallback(async () => {
     const projects = await api.list()
@@ -88,7 +94,7 @@ export function WorkbenchFrame(props: WorkbenchProps) {
     <div className={css.workbenchSurface}>
       <div className={css.workbenchBody} hidden={panel !== null && !showWorkspace}>
         {showWorkspace ? <Workspace {...props} key={projectPath} projectPath={projectPath}
-          fileRequest={fileRequest} fileRevision={fileRevision} closeProject={async () => { home() }}
+          fileRequest={fileRequest} fileRevision={fileRevision} closeProject={closeWorkspace}
           registerCloseRequest={registerWorkspaceClose} />
           : surface === 'workspace' && busy ? <main className={css.restoreSurface} role="status">{t('pending')}</main>
             : surface === 'library' ? <ProjectLibraryPage t={t} list={listProjects} openProject={openProject} deleteProject={api.remove} forgetProject={api.forget} onBack={home} />

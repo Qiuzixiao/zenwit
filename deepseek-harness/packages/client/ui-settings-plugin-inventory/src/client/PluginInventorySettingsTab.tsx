@@ -9,6 +9,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState, TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { RegistrationRejection, RendererInventory } from '@deepseek-ai/dsh-client-ui-workbench/preview'
 import type { PluginInventoryLocaleKey } from './locales.ts'
 import css from './PluginInventorySettingsTab.module.css'
 
@@ -25,6 +26,8 @@ export interface PluginInventorySettingsTabInjected {
    * agent-preset dictionaries, user-authored ones keep their own metadata.
    */
   presetName: (preset: AgentPresetGroup) => string
+  /** Current document renderers and soft-rejections; empty when no Workbench is mounted. */
+  renderers: () => RendererInventory
 }
 type PluginFiberPhase = PluginInventoryEntry['fiberPhase']
 
@@ -196,9 +199,19 @@ function StateTag({ kind, label }: { readonly kind: EnablementKind; readonly lab
   return <Tag tone={TAG_TONES[kind]}>{label}</Tag>
 }
 
+/** Localized reason for one soft-rejected renderer registration. */
+function rendererRejectionText(rejection: RegistrationRejection, t: Translate): string {
+  switch (rejection.kind) {
+    case 'contract': return t('rendererRejectedContract', { declared: String(rejection.declared), required: String(rejection.required) })
+    case 'duplicate-id': return t('rendererRejectedDuplicate')
+    case 'invalid': return t('rendererRejectedInvalid', { field: rejection.field })
+  }
+}
+
 /** Render the read-only plugin inventory: agent presets first, then the global plane. */
-export function PluginInventorySettingsTab({ list, presetName, t }: PluginInventorySettingsTabProps): ReactNode {
+export function PluginInventorySettingsTab({ list, presetName, renderers, t }: PluginInventorySettingsTabProps): ReactNode {
   const sectionId = useId()
+  const rendererInventory = renderers()
   const [request, setRequest] = useState(0)
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -505,6 +518,37 @@ export function PluginInventorySettingsTab({ list, presetName, t }: PluginInvent
                   ))}
                 </ul>
               ) : null}
+            </section>
+          ) : null}
+
+          {rendererInventory.entries.length > 0 || rendererInventory.rejected.length > 0 ? (
+            <section className={css.group} data-plugin-scope="renderers">
+              <div className={css.groupTitleRow}>
+                <span className={css.groupTitle}>{t('rendererTitle')}</span>
+              </div>
+              <p className={css.groupSub}>{t('rendererSubtitle')}</p>
+              <ul className={css.cards}>
+                {rendererInventory.entries.map(entry => (
+                  <li key={`renderer:${entry.id}`} className={css.card} data-renderer={entry.id}>
+                    <span className={css.cardMainRow}>
+                      <strong className={css.cardTitle}>{entry.id}</strong>
+                      <span className={css.cardTrailing}>
+                        <StateTag kind={entry.status === 'load-failed' ? 'failed' : 'enabled'} label={entry.status === 'load-failed' ? t('rendererFailed') : t('rendererActive')} />
+                        <Tag tone={entry.builtin ? 'info' : 'neutral'}>{entry.builtin ? t('rendererBuiltin') : t('rendererPlugin')}</Tag>
+                      </span>
+                    </span>
+                  </li>
+                ))}
+                {rendererInventory.rejected.map(record => (
+                  <li key={`rejected:${record.id}`} className={css.card} data-renderer-rejected={record.id}>
+                    <span className={css.cardMainRow}>
+                      <strong className={css.cardTitle}>{record.id}</strong>
+                      <span className={css.cardTrailing}><StateTag kind="failed" label={t('rendererRejected')} /></span>
+                    </span>
+                    <p className={css.groupSub}>{rendererRejectionText(record.rejection, t)}</p>
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
         </div>

@@ -65,6 +65,7 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     expect(b.list).not.toHaveBeenCalled()
 
     const injected = (entry.inject as unknown as () => PluginInventorySettingsTabInjected)()
+    expect(injected.renderers()).toEqual({ entries: [], rejected: [] })
     await expect(injected.list()).resolves.toEqual(EMPTY)
     expect(b.list).toHaveBeenCalledOnce()
     b.list.mockResolvedValueOnce({ ok: false, error: { code: 'REMOTE_ERROR', message: 'unavailable' } })
@@ -75,6 +76,18 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     b.locale.register('settings.agentPreset', 'zh', { presetStandardName: '标准模式' } as never)
     expect(injected.presetName({ id: 'standard', trust: 'system', isDefault: true, rows: [] })).toBe('标准模式')
     expect(injected.presetName({ id: 'mine', trust: 'user', name: '我自己的', isDefault: false, rows: [] })).toBe('我自己的')
+    await b.ctx.fiber.dispose()
+  })
+
+  it('reads the Workbench renderer registry when it is mounted', async () => {
+    const b = await bench()
+    const inventory = { entries: [{ id: 'builtin/image', builtin: true, status: 'active' as const }], rejected: [] }
+    b.ctx.provide('documentRenderers', { inventory: () => inventory } as never)
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const entry = b.slots.entries('settings.plugins.tab')[0]!
+    const injected = (entry.inject as unknown as () => PluginInventorySettingsTabInjected)()
+    expect(injected.renderers()).toEqual(inventory)
     await b.ctx.fiber.dispose()
   })
 
