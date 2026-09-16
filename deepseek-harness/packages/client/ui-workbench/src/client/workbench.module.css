@@ -301,10 +301,11 @@
 @media (max-width: 620px) { .home { padding: 0 14px 14px; } .homeNav { gap: 10px; } .brandContext, .brandDivider, .navLinks { display: none; } .navTools { gap: 7px; } .searchBox { width: 34px; padding: 0 9px; } .searchBox input { display: none; } .newProjectButton span { display: none; } .newProjectButton { width: 34px; padding: 0; } .homeIntro { padding: 20px 0 18px; } .homeIntro h1 { font-size: 28px; } .introRule { width: 20%; } .filterList { grid-template-columns: 1fr; } .projectRow { grid-template-columns: 30px minmax(0, 1fr) 18px; } .projectRowTime { display: none; } }
 @media (max-width: 620px) { .libraryPage { padding: 0 14px 16px; } .libraryPageGrid { grid-template-columns: 1fr; gap: 12px; padding-top: 16px; } .projectCard, .projectSkeleton { min-height: 186px; } }
 @media (prefers-reduced-motion: reduce) { .loadingSpinner, .buttonSpinner { animation: none; } }
+/* The rail holds one card: the sidebar footer's seat moved into the chrome tool
+   row, so a second grid row would leave an empty gap under the file tree. */
 .leftRail {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 14px;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
