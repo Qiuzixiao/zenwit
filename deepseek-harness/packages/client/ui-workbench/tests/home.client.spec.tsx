@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
+import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import { HomePage } from '../src/client/HomePage.tsx'
-import type { CopyProps } from '../src/client/contract.ts'
+import type { CopyProps, WorkbenchProps } from '../src/client/contract.ts'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
+
+/** Home surface slot stub for cases that assert no slot content. */
+const noSlots = (() => null) as unknown as WorkbenchProps['renderSlot']
 
 it.each([{ language: 'Chinese', copy: zh }, { language: 'English', copy: en }])(
   'names the create dialog and input in $language and creates once on Enter',
@@ -18,7 +22,8 @@ it.each([{ language: 'Chinese', copy: zh }, { language: 'English', copy: en }])(
       return text.replace(/\{(\w+)\}/gu, (_, name: string) => String(params?.[name] ?? ''))
     }
     render(<HomePage t={t} list={async () => []} create={create} updateProjectTags={vi.fn()}
-      deleteProject={vi.fn()} forgetProject={vi.fn()} openProject={openProject} openLibrary={vi.fn()} openFolder={vi.fn()} />)
+      deleteProject={vi.fn()} forgetProject={vi.fn()} openProject={openProject} openLibrary={vi.fn()} openFolder={vi.fn()}
+      goHome={vi.fn()} panels={[]} activePanel={null} selectPanel={vi.fn()} renderSlot={noSlots} />)
     await screen.findByText(copy['legacy.022'])
     fireEvent.click(screen.getByRole('button', { name: copy['legacy.014'] }))
     const dialog = screen.getByRole('dialog', { name: copy['legacy.026'] })
@@ -31,3 +36,30 @@ it.each([{ language: 'Chinese', copy: zh }, { language: 'English', copy: en }])(
     expect(create).toHaveBeenCalledExactlyOnceWith(project.name, [])
   },
 )
+
+it('navigates to a registered panel, hosts it in the home body, and keeps the settings seat', async () => {
+  const selectPanel = vi.fn()
+  const renderSlot = vi.fn((name: string, _owner: unknown, opts?: { entryKey?: string; only?: string }) => {
+    if (name === 'main') return <div>panel:{opts?.entryKey}</div>
+    if (name === 'sidebar.settings') return <div>settings seat</div>
+    return <span>icon:{opts?.only}</span>
+  }) as unknown as WorkbenchProps['renderSlot']
+  const panels = [{ id: 'account' as unknown as MainPanelId, label: 'Account center' }]
+  const base = {
+    t: ((key: string) => key) as CopyProps['t'],
+    list: async () => [],
+    create: vi.fn(), updateProjectTags: vi.fn(), deleteProject: vi.fn(), forgetProject: vi.fn(),
+    openProject: vi.fn(), openLibrary: vi.fn(), openFolder: vi.fn(), goHome: vi.fn(), selectPanel, renderSlot,
+  }
+  const view = render(<HomePage {...base} panels={panels} activePanel={null} />)
+  await screen.findByText('legacy.022')
+  expect(screen.getByText('settings seat')).toBeTruthy()
+  const entry = screen.getByRole('button', { name: /Account center/u })
+  expect(entry.getAttribute('aria-current')).toBeNull()
+  fireEvent.click(entry)
+  expect(selectPanel).toHaveBeenCalledWith('account')
+  view.rerender(<HomePage {...base} panels={panels} activePanel={'account' as unknown as MainPanelId} />)
+  expect(screen.getByText('panel:account')).toBeTruthy()
+  expect(screen.queryByText('legacy.015')).toBeNull()
+  expect(screen.getByRole('button', { name: /Account center/u }).getAttribute('aria-current')).toBe('page')
+})

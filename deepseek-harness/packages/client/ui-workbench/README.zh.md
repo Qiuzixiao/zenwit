@@ -15,7 +15,7 @@ kind: "package-reference"
 
 与 API session/workspace controllers、ui-renderer、ui-session、仅提供服务的 ui-layout 和 ui-workspace、locale、conversation、input-trigger 一起挂载。保留 ui-settings-general 及需要的设置扩展；通用 `@` 文件和会话候选由 ui-reference 提供。Host 提供既有通用 `/api/desktop/projects` 接口。
 
-根节点独占声明 `main`（keyed root）、`sidebar.settings`（single root）、`sidebar.panellist`（list root）、`shell.overlay`（list root）。设置接收 `{ wide: true }`；main 的 conversation 项在右侧显示；插件页面在中间显示，文档编辑器保持挂载。不得再挂载其他根界面、SidebarRoot、ui-workspace 原生浏览器或 rightbar 所有者；本包不使用覆盖优先级。
+根节点独占声明 `main`（keyed root）、`sidebar.settings`（single root）、`sidebar.panellist`（list root）、`shell.overlay`（list root）。工作区以 `{ wide: true }` 渲染设置座位，首页与项目库则在两者共用的外框工具栏里以 `{ wide: false }` 渲染它。已注册的 `sidebar.panellist` 条目在两个内置界面上都是一级导航，在工作区是工具行条目；被选中的 `main` 键在首页主体或工作区中间窗格承载页面，文档编辑器保持挂载。main 的 conversation 项在右侧显示。不得再挂载其他根界面、SidebarRoot、ui-workspace 原生浏览器或 rightbar 所有者；本包不使用覆盖优先级。
 
 聊天和工具文件链接调用 `ctx.workbenchFiles.openFile(path, line?)`。支持项目相对路径、绝对本地路径和本地 file URL；拒绝越出当前项目的路径；指定行号时切换源码并定位。选区引用保存未提交的编辑内容，可加入当前或新会话，不会自动发送。
 
@@ -23,7 +23,7 @@ kind: "package-reference"
 
 对话区宽度根据工作台可用空间调整，窗口缩放时保留用户设定的展开宽度。向右侧边缘拖拽可折叠，向左拖拽分隔线可展开；点击展开恢复折叠前的宽度。窄对话区的顶部操作显示为图标，输入框工具栏的响应式布局由 conversation 负责。
 
-WorkbenchFrame 负责页面、插件导航和标题；Workspace 负责工作区交互和文档生命周期；workspace-files 负责路径校验、文件树筛选和页签持久化；Editor 保留 Milkdown 可视化 Markdown、GFM、撤销重做、搜索、大纲、选区和 CodeMirror 源码编辑；ScrollDots 保留键盘与指针滚动。产品文案通过类型化中英词典注册。
+WorkbenchFrame 负责页面、面板承载和标题，WorkbenchTopBar 为每个内置界面渲染品牌、一级导航与设置座位（因此外框不会各自漂移），HomePage 在两个内置界面旁列出已注册的面板条目并承载被选中的那一个；Workspace 负责工作区交互和文档生命周期；workspace-files 负责路径校验、文件树筛选和页签持久化；Editor 保留 Milkdown 可视化 Markdown、GFM、撤销重做、搜索、大纲、选区和 CodeMirror 源码编辑；ScrollDots 保留键盘与指针滚动。产品文案通过类型化中英词典注册。
 
 保留自动保存、串行草稿备份、外部变更同步、冲突对比、明确覆盖、保留本地副本、导入、新建文件／目录、重命名、删除和关闭／离开保护。新建文件后自动打开。普通读取不带 sync=1，以便恢复草稿；同步读取带 sync=1。保存携带 expectedContent，409 保留本地编辑并暂停自动保存。Host SSE 监听由插件 effect 持有，通过框架绑定的 hook 进入 React，并随插件释放。
 

@@ -1,4 +1,5 @@
-import type { CopyProps } from './contract.ts';
+import type { CopyProps, Panel, WorkbenchProps } from './contract.ts';
+import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client';
 /**
  * Zenwit home: a compact project control surface backed by the desktop
  * project-library API.
@@ -7,6 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Clock3, FolderOpen, LoaderCircle, Plus, Search, Sparkles, Tags, Trash2, X, FolderMinus } from 'lucide-react';
 import type { ProjectSummary } from './project-api.ts';
 import { ProjectTagEditor, ProjectTags } from './ProjectTagEditor.tsx';
+import { WorkbenchTopBar } from './WorkbenchTopBar.tsx';
+import { projectMatches, projectTags } from './project-search.ts';
 import css from './workbench.module.css';
 type ProjectFilter = 'all' | 'untagged' | `tag:${string}`;
 function formatTime(ms: number, t: CopyProps['t']): string {
@@ -14,21 +17,11 @@ function formatTime(ms: number, t: CopyProps['t']): string {
         return t("legacy.001");
     return new Date(ms).toLocaleDateString('zh-CN');
 }
-function projectTags(project: ProjectSummary): string[] {
-    return Array.isArray(project.tags) ? project.tags : [];
-}
-function projectMatches(project: ProjectSummary, query: string): boolean {
-    const normalized = query.trim().toLocaleLowerCase();
-    if (normalized === '')
-        return true;
-    return [project.name, project.path, ...projectTags(project)]
-        .some(value => value.toLocaleLowerCase().includes(normalized));
-}
 function tagsEqual(left: readonly string[], right: readonly string[]): boolean {
     return left.length === right.length && left.every((tag, index) => tag === right[index]);
 }
-/** Home page: project search, filtering, creation and selected-project actions. */
-export function HomePage({ list, create, updateProjectTags, deleteProject, forgetProject, openProject, openLibrary, openFolder, t, ready = true, }: {
+/** Home surface props: project data, the panel entries it navigates to, and slot rendering. */
+export interface HomePageProps extends CopyProps {
     list: () => Promise<ProjectSummary[]>;
     create: (name: string, tags: string[]) => Promise<ProjectSummary>;
     updateProjectTags: (projectPath: string, tags: string[]) => Promise<ProjectSummary>;
@@ -37,9 +30,22 @@ export function HomePage({ list, create, updateProjectTags, deleteProject, forge
     openProject: (projectPath: string) => Promise<void>;
     openLibrary: () => void;
     openFolder: () => void;
-    t: CopyProps['t'];
+    /** Return to the home surface from the chrome's own navigation. */
+    goHome: () => void;
+    /** Registered main-panel entries offered beside the built-in surfaces. */
+    panels: readonly Panel[];
+    /** Main panel hosting this surface, or null while a built-in surface owns it. */
+    activePanel: MainPanelId | null;
+    /** Select a main panel, or null to return to the built-in surfaces. */
+    selectPanel: (id: MainPanelId | null) => void;
+    renderSlot: WorkbenchProps['renderSlot'];
     ready?: boolean;
-}) {
+}
+/** Home page: project search, filtering, creation and selected-project actions. */
+export function HomePage({
+    list, create, updateProjectTags, deleteProject, forgetProject, openProject, openLibrary, openFolder, goHome,
+    panels, activePanel, selectPanel, renderSlot, t, ready = true,
+}: HomePageProps) {
     const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
     const [selectedPath, setSelectedPath] = useState<string | null>(null);
     const [filter, setFilter] = useState<ProjectFilter>('all');
@@ -210,40 +216,29 @@ export function HomePage({ list, create, updateProjectTags, deleteProject, forge
         { key: 'untagged', label: t("legacy.008"), count: sortedProjects.filter(project => projectTags(project).length === 0).length },
     ];
     return (<main className={css.home}>
-      <header className={css.homeNav}>
-        <div className={css.navBrand} aria-label="Zenwit">
-          <span className={css.brandMark} aria-hidden="true">Z</span>
-          <strong>ZENWIT</strong>
-          <span className={css.brandDivider} aria-hidden="true"/>
-          <span className={css.brandContext}>{t("legacy.009")}</span>
-        </div>
-        <nav className={css.navLinks} aria-label={t("legacy.010")}>
-          <button className={css.navActive} type="button" aria-current="page">{t("legacy.011")}</button>
-          <button type="button" onClick={openLibrary}>{t("legacy.012")}</button>
-        </nav>
-        <div className={css.navTools}>
-          <label className={css.searchBox}>
-            <Search size={15} aria-hidden="true"/>
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("legacy.013")} aria-label={t("legacy.013")}/>
-          </label>
-          <button className={css.newProjectButton} type="button" onClick={openCreate}>
-            <Plus size={15} aria-hidden="true"/>
-            <span>{t("legacy.014")}</span>
-          </button>
-          <button className={css.secondaryButton} type="button" onClick={openFolder}><FolderOpen size={15} />{t('openFolder')}</button>
-        </div>
-      </header>
+      <WorkbenchTopBar surface="home" panels={panels} activePanel={activePanel} selectPanel={selectPanel}
+        goHome={goHome} openLibrary={openLibrary} renderSlot={renderSlot} t={t}>
+        <label className={css.searchBox}>
+          <Search size={15} aria-hidden="true"/>
+          <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t("legacy.013")} aria-label={t("legacy.013")}/>
+        </label>
+        <button className={css.newProjectButton} type="button" onClick={openCreate}>
+          <Plus size={15} aria-hidden="true"/>
+          <span>{t("legacy.014")}</span>
+        </button>
+        <button className={css.secondaryButton} type="button" onClick={openFolder}><FolderOpen size={15} />{t('openFolder')}</button>
+      </WorkbenchTopBar>
 
-      <section className={css.homeIntro} aria-labelledby="home-title">
+      {activePanel === null && <section className={css.homeIntro} aria-labelledby="home-title">
         <div>
           <span className={css.sectionKicker}>ZENWIT / PROJECTS</span>
           <h1 id="home-title">{t("legacy.015")}</h1>
           <p>{t("legacy.016")}</p>
         </div>
         <div className={css.introRule} aria-hidden="true"/>
-      </section>
+      </section>}
 
-      <section className={css.homeBody}>
+      {activePanel === null && <section className={css.homeBody}>
         <aside className={css.filterPanel} aria-label={t("legacy.017")}>
           <div className={css.panelHeading}><Tags size={15} aria-hidden="true"/><span>{t("legacy.018")}</span></div>
           <div className={css.filterList} role="listbox" aria-label={t("legacy.018")}>
@@ -331,7 +326,8 @@ export function HomePage({ list, create, updateProjectTags, deleteProject, forge
               </div>
             </>)}
         </aside>
-      </section>
+      </section>}
+      {activePanel !== null && <section className={css.homePluginPage}>{renderSlot('main', {}, { entryKey: activePanel })}</section>}
 
       {error !== null && <p className={css.homeError} role="alert">{error}</p>}
 

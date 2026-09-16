@@ -1,6 +1,7 @@
 /** Workbench shell; document lifecycle stays mounted while a plugin panel is selected. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Bell } from 'lucide-react'
+import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { WorkbenchProps } from './contract.ts'
 import { HomePage } from './HomePage.tsx'
 import { ProjectLibraryPage } from './ProjectLibraryPage.tsx'
@@ -60,7 +61,20 @@ export function WorkbenchFrame(props: WorkbenchProps) {
   // Stable identity: the workspace registers this callback and re-registers when it
   // changes, so an inline arrow here re-renders the frame on every pass.
   const closeWorkspace = useCallback(async (): Promise<void> => { home() }, [home])
-  const openProject = props.openProject
+  const selectPanel = props.selectPanel
+  const openProjectRequest = props.openProject
+  // Opening a project is a navigation: a selected global panel must not follow the
+  // user into the workspace, where it would cover the conversation.
+  const openProject = useCallback(async (path: string): Promise<void> => {
+    selectPanel(null)
+    await openProjectRequest(path)
+  }, [openProjectRequest, selectPanel])
+  // Selecting a plugin panel returns to the home surface: the panel page is
+  // hosted by the home body, so the chrome must sit where that body renders.
+  const openPanel = useCallback((id: MainPanelId | null): void => {
+    selectPanel(id)
+    if (id !== null) setSurface('home')
+  }, [selectPanel])
   const listProjects = useCallback(async () => {
     const projects = await api.list()
     const paths = new Set(projects.map(project => project.path))
@@ -84,7 +98,7 @@ export function WorkbenchFrame(props: WorkbenchProps) {
   return <div className={css.frame} data-workbench-frame="true">
     {showWorkspace && <nav className={css.workbenchTools} aria-label={t('panels')}>
       <button className={css.workbenchBackButton} type="button" onClick={() => requestWorkspaceClose?.()} disabled={requestWorkspaceClose === null}><ArrowLeft size={16} />{t('legacy.012')}</button>
-      {panels.map(item => <button type="button" key={item.id} aria-pressed={panel === item.id} onClick={() => props.selectPanel(item.id)}>
+      {panels.map(item => <button type="button" key={item.id} aria-pressed={panel === item.id} onClick={() => openPanel(item.id)}>
         {renderSlot('sidebar.panellist', { size: 16, active: panel === item.id }, { only: item.id })}{item.label}
       </button>)}
       <div className={css.globalActions}>
@@ -92,16 +106,18 @@ export function WorkbenchFrame(props: WorkbenchProps) {
       </div>
     </nav>}
     <div className={css.workbenchSurface}>
-      <div className={css.workbenchBody} hidden={panel !== null && !showWorkspace}>
+      <div className={css.workbenchBody}>
         {showWorkspace ? <Workspace {...props} key={projectPath} projectPath={projectPath}
           fileRequest={fileRequest} fileRevision={fileRevision} closeProject={closeWorkspace}
           registerCloseRequest={registerWorkspaceClose} />
           : surface === 'workspace' && busy ? <main className={css.restoreSurface} role="status">{t('pending')}</main>
-            : surface === 'library' ? <ProjectLibraryPage t={t} list={listProjects} openProject={openProject} deleteProject={api.remove} forgetProject={api.forget} onBack={home} />
+            : surface === 'library' ? <ProjectLibraryPage t={t} list={listProjects} openProject={openProject} deleteProject={api.remove} forgetProject={api.forget}
+                openFolder={() => { setError(undefined); setPicking(true) }} goHome={home}
+                panels={panels} activePanel={panel} selectPanel={openPanel} renderSlot={renderSlot} />
               : <HomePage t={t} list={listProjects} create={api.create} updateProjectTags={api.updateTags}
-                deleteProject={api.remove} forgetProject={api.forget} openProject={openProject} openFolder={() => { setError(undefined); setPicking(true) }} openLibrary={() => setSurface('library')} ready={!busy} />}
+                deleteProject={api.remove} forgetProject={api.forget} openProject={openProject} openFolder={() => { setError(undefined); setPicking(true) }} openLibrary={() => { selectPanel(null); setSurface('library') }} goHome={home}
+                panels={panels} activePanel={panel} selectPanel={openPanel} renderSlot={renderSlot} ready={!busy} />}
       </div>
-      {panel !== null && !showWorkspace && <section className={css.pluginPage}>{renderSlot('main', {}, { entryKey: panel })}</section>}
     </div>
     {error !== undefined && <div role="alert" className={css.workbenchError}>{error}</div>}
     {renderSlot('sidebar.workspaces.directoryFlow', { open: picking, busy: adopting, onPicked: path => { void picked(path) }, onCancel: () => setPicking(false), onError: message => { setError(message); setPicking(false) } })}
