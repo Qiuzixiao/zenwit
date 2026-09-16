@@ -478,7 +478,9 @@ export function CordisPanel({
           data-cordis-badge={all.length}
           data-cordis-approval-badge={approvals}
           data-active={approvals > 0 || undefined}
-          aria-label={t('panel.plugins.aria')}
+          aria-label={wide
+            ? t('panel.plugins.aria')
+            : `${t('panel.plugins.aria')} · ${t('panel.status.aria', { running, approvals })}`}
           aria-expanded={open}
           onClick={() => { setOpen(value => !value) }}
         >
@@ -487,6 +489,12 @@ export function CordisPanel({
             {wide && <span className={css.badgeLabel}>{t('panel.trigger')}</span>}
           </span>
           {wide && <span className={css.badgeCount}>{t('panel.runningCount', { count: running })}</span>}
+          {/* The chrome seat has no room for the count; the dot carries the state. */}
+          {!wide && (running > 0 || approvals > 0) && <span
+            className={css.badgeDot}
+            data-state={approvals > 0 ? 'approvals' : 'running'}
+            aria-hidden="true"
+          />}
         </button>
       </div>
     </div>

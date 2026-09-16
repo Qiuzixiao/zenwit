@@ -17,6 +17,7 @@
 }
 
 .badge {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -49,6 +50,22 @@
   white-space: nowrap;
 }
 .badgeMain { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+
+/* Narrow seat: the running count collapses into a corner dot, and a plugin that
+   waits for approval outranks one that merely runs. */
+.badgeDot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.badgeDot[data-state='approvals'] {
+  background: var(--dsw-alias-state-warn-primary);
+}
 
 .badgeCount {
   flex: none;
