@@ -65,7 +65,7 @@ describe('community market client registration', () => {
     expect(NS).toBe('community-market')
   })
 
-  it('registers locale, styles, settings tab, sidebar launcher, and shell overlay effects', () => {
+  it('registers locale, styles, the first-level panel, settings tab, sidebar launcher, and shell overlay', () => {
     const test = testContext()
 
     apply(test.context)
@@ -75,6 +75,8 @@ describe('community market client registration', () => {
       'community-market: styles',
     ])
     expect(test.injections.map(value => value.name)).toEqual([
+      'sidebar.panellist',
+      'main',
       'settings.plugins.tab',
       'sidebar.footer.action',
       'shell.overlay',
@@ -87,8 +89,19 @@ describe('community market client registration', () => {
     apply(test.context)
     test.injections.forEach(value => { value.factory() })
 
-    expect(test.registrations).toHaveLength(3)
+    expect(test.registrations).toHaveLength(5)
     expect(test.registrations.map(value => value.spec)).toEqual([
+      expect.objectContaining({
+        name: 'sidebar.panellist',
+        id: 'community-market',
+        order: 10,
+        locale: NS,
+      }),
+      expect.objectContaining({
+        name: 'main',
+        key: 'community-market',
+        locale: NS,
+      }),
       expect.objectContaining({
         name: 'settings.plugins.tab',
         id: 'community-market',
@@ -108,7 +121,10 @@ describe('community market client registration', () => {
         locale: NS,
       }),
     ])
-    const [settings, launcher, overlay] = test.registrations.map(value => value.spec)
+    const [entry, page, settings, launcher, overlay] = test.registrations.map(value => value.spec)
+    expect(typeof entry?.label).toBe('function')
+    expect(typeof page?.inject).toBe('function')
+    expect(page?.key).toBe(entry?.id)
     expect(typeof settings?.label).toBe('function')
     expect(typeof settings?.inject).toBe('function')
     expect(typeof launcher?.label).toBe('function')

@@ -775,6 +775,16 @@ const css = `
   border-bottom: 1px solid var(--dsw-alias-border-l1);
 }
 
+.dshMarketPanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 20px 24px 24px;
+}
+
 .dshMarketOverlayBody {
   min-width: 0;
   min-height: 0;
