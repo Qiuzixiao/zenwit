@@ -65,7 +65,7 @@ describe('community market client registration', () => {
     expect(NS).toBe('community-market')
   })
 
-  it('registers locale, styles, the first-level panel, settings tab, sidebar launcher, and shell overlay', () => {
+  it('registers locale, styles, the first-level panel, and the settings tab', () => {
     const test = testContext()
 
     apply(test.context)
@@ -78,18 +78,16 @@ describe('community market client registration', () => {
       'sidebar.panellist',
       'main',
       'settings.plugins.tab',
-      'sidebar.footer.action',
-      'shell.overlay',
     ])
   })
 
-  it('projects all slot registrations with the market identity, locale, and shared view store', () => {
+  it('projects every slot registration with the market identity and locale', () => {
     const test = testContext()
 
     apply(test.context)
     test.injections.forEach(value => { value.factory() })
 
-    expect(test.registrations).toHaveLength(5)
+    expect(test.registrations).toHaveLength(3)
     expect(test.registrations.map(value => value.spec)).toEqual([
       expect.objectContaining({
         name: 'sidebar.panellist',
@@ -108,27 +106,12 @@ describe('community market client registration', () => {
         order: 20,
         locale: NS,
       }),
-      expect.objectContaining({
-        name: 'sidebar.footer.action',
-        id: 'community-market',
-        order: 10,
-        locale: NS,
-      }),
-      expect.objectContaining({
-        name: 'shell.overlay',
-        id: 'community-market',
-        order: 10,
-        locale: NS,
-      }),
     ])
-    const [entry, page, settings, launcher, overlay] = test.registrations.map(value => value.spec)
+    const [entry, page, settings] = test.registrations.map(value => value.spec)
     expect(typeof entry?.label).toBe('function')
     expect(typeof page?.inject).toBe('function')
     expect(page?.key).toBe(entry?.id)
     expect(typeof settings?.label).toBe('function')
     expect(typeof settings?.inject).toBe('function')
-    expect(typeof launcher?.label).toBe('function')
-    expect(launcher?.store).toBe(overlay?.store)
-    expect(typeof overlay?.inject).toBe('function')
   })
 })

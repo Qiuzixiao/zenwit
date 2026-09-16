@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apply, inject, NS } from '../src/client/index.js'
-import { MarketLauncher } from '../src/client/MarketLauncher.js'
-import { MarketOverlay } from '../src/client/MarketOverlay.js'
+import { MarketPanel, MarketPanelIcon } from '../src/client/MarketPanel.js'
 import { MarketSettingsTab } from '../src/client/MarketSettingsTab.js'
 import { en, zh } from '../src/client/locales.js'
+
+/** Slots this package registers into; every one must appear and roll back. */
+const ENTRIES = ['sidebar.panellist', 'main', 'settings.plugins.tab'] as const
 
 interface TestEntry {
   readonly component: unknown
@@ -120,73 +122,66 @@ describe('community market browser plugin', () => {
     expect(styles).toMatch(/\.dshMarketConfirmModal\s*\{[^}]*width: min\(600px, calc\(100vw - 48px\)\)/su)
     expect(styles).toMatch(/\.dshMarketSourceModal\s*\{[^}]*width: min\(600px, calc\(100vw - 48px\)\)/su)
     expect(styles).toMatch(/\.dshMarketStatusModal\s*\{[^}]*width: min\(480px, calc\(100vw - 48px\)\)/su)
-    expect(styles).toMatch(/\.dshMarketOverlayPanel\s*\{[^}]*width: min\(800px, 100%\);[^}]*height: min\(700px, 100%\)/su)
-    expect(styles).toMatch(/@media \(max-width: 680px\)[\s\S]*\.dshMarketOverlayPanel\s*\{[^}]*width: 100%;[^}]*height: 100%/u)
 
     b.dispose()
   })
 
-  it('registers one shared Market surface in official settings and sidebar slots without fetching', () => {
+  it('registers one shared Market surface in the workbench panel and the official settings tab without fetching', () => {
     const b = bench()
-    for (const name of ['settings.plugins.tab', 'sidebar.footer.action', 'shell.overlay']) b.declare(name)
+    for (const name of ENTRIES) b.declare(name)
     const fetch = vi.spyOn(globalThis, 'fetch')
 
     b.apply()
 
     expect(inject).toEqual(['slots', 'locale'])
+    const entry = b.entries('sidebar.panellist')
+    const page = b.entries('main')
     const settings = b.entries('settings.plugins.tab')
-    const launcher = b.entries('sidebar.footer.action')
-    const overlay = b.entries('shell.overlay')
+    expect(entry).toHaveLength(1)
+    expect(page).toHaveLength(1)
     expect(settings).toHaveLength(1)
-    expect(launcher).toHaveLength(1)
-    expect(overlay).toHaveLength(1)
+    expect(entry[0]?.component).toBe(MarketPanelIcon)
+    expect(page[0]?.component).toBe(MarketPanel)
     expect(settings[0]?.component).toBe(MarketSettingsTab)
-    expect(launcher[0]?.component).toBe(MarketLauncher)
-    expect(overlay[0]?.component).toBe(MarketOverlay)
+    expect(entry[0]?.options).toMatchObject({ id: 'community-market', order: 10 })
+    expect(page[0]?.options).toMatchObject({ key: 'community-market' })
     expect(settings[0]?.options).toMatchObject({ id: 'community-market', order: 20 })
-    expect(launcher[0]?.options).toMatchObject({ id: 'community-market', order: 10 })
-    expect(overlay[0]?.options).toMatchObject({ id: 'community-market', order: 10 })
-    expect(launcher[0]?.options.store).toBe(overlay[0]?.options.store)
+    expect(entry[0]?.locale).toBe(NS)
     expect(settings[0]?.locale).toBe(NS)
-    expect(launcher[0]?.locale).toBe(NS)
-    expect(overlay[0]?.locale).toBe(NS)
+    expect((entry[0]?.options.label as () => string)()).toBe(zh.tab)
     expect((settings[0]?.options.label as () => string)()).toBe(zh.tab)
-    expect((launcher[0]?.options.label as () => string)()).toBe(zh.tab)
     expect(fetch).not.toHaveBeenCalled()
 
     const settingsInject = settings[0]?.inject?.() as { readLocale: () => string }
-    const overlayInject = overlay[0]?.inject?.() as { readLocale: () => string }
+    const pageInject = page[0]?.inject?.() as { readLocale: () => string }
     expect(settingsInject.readLocale()).toBe('zh')
-    expect(overlayInject.readLocale()).toBe('zh')
+    expect(pageInject.readLocale()).toBe('zh')
     b.setLocale('en')
+    expect((entry[0]?.options.label as () => string)()).toBe(en.tab)
     expect((settings[0]?.options.label as () => string)()).toBe(en.tab)
-    expect((launcher[0]?.options.label as () => string)()).toBe(en.tab)
     expect(settingsInject.readLocale()).toBe('en')
 
     b.dispose()
-    expect(b.entries('settings.plugins.tab')).toHaveLength(0)
-    expect(b.entries('sidebar.footer.action')).toHaveLength(0)
-    expect(b.entries('shell.overlay')).toHaveLength(0)
+    for (const name of ENTRIES) expect(b.entries(name)).toHaveLength(0)
     expect(document.querySelector('style[data-plugin="dsh-community-market/styles"]')).toBeNull()
   })
 
-  it('follows late declaration and declaration reload for all three entries', () => {
+  it('follows late declaration and declaration reload for every entry', () => {
     const b = bench()
     b.apply()
-    const names = ['settings.plugins.tab', 'sidebar.footer.action', 'shell.overlay'] as const
-    for (const name of names) expect(b.entries(name)).toHaveLength(0)
+    for (const name of ENTRIES) expect(b.entries(name)).toHaveLength(0)
 
-    const stops = names.map(name => b.declare(name))
-    for (const name of names) expect(b.entries(name)).toHaveLength(1)
+    const stops = ENTRIES.map(name => b.declare(name))
+    for (const name of ENTRIES) expect(b.entries(name)).toHaveLength(1)
     for (const stop of stops) stop()
-    for (const name of names) expect(b.entries(name)).toHaveLength(0)
+    for (const name of ENTRIES) expect(b.entries(name)).toHaveLength(0)
 
-    for (const name of names) b.declare(name)
+    for (const name of ENTRIES) b.declare(name)
+    expect(b.entries('sidebar.panellist')[0]?.component).toBe(MarketPanelIcon)
+    expect(b.entries('main')[0]?.component).toBe(MarketPanel)
     expect(b.entries('settings.plugins.tab')[0]?.component).toBe(MarketSettingsTab)
-    expect(b.entries('sidebar.footer.action')[0]?.component).toBe(MarketLauncher)
-    expect(b.entries('shell.overlay')[0]?.component).toBe(MarketOverlay)
 
     b.dispose()
-    for (const name of names) expect(b.entries(name)).toHaveLength(0)
+    for (const name of ENTRIES) expect(b.entries(name)).toHaveLength(0)
   })
 })

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { useSyncExternalStore } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {
@@ -10,9 +9,6 @@ import type {
 } from '../src/api-types.js'
 import type { CatalogSnapshot } from '../src/contracts/generated/catalog-snapshot.js'
 import { MarketSettingsTab, type MarketSettingsTabProps } from '../src/client/MarketSettingsTab.js'
-import { MarketLauncher, type MarketLauncherProps } from '../src/client/MarketLauncher.js'
-import { MarketOverlay, type MarketOverlayProps } from '../src/client/MarketOverlay.js'
-import { createMarketViewStore } from '../src/client/market-view-store.js'
 import {
   executeMarketOperation,
   openMarketTerminal,
@@ -999,29 +995,5 @@ describe('MarketSettingsTab', () => {
     expect(await screen.findByRole('heading', { name: en.catalogError })).toBeTruthy()
     expect(screen.getByText('Source: Fixture catalog. The catalog request timed out.')).toBeTruthy()
     expect(screen.queryByText(/private upstream URL/u)).toBeNull()
-  })
-
-
-  it('opens and closes the shared Market surface from the sidebar launcher', async () => {
-    vi.mocked(readMarketState).mockResolvedValue(emptyState)
-    const instance = createMarketViewStore().create()
-    const useStore = <T,>(selector: (state: { open: boolean }) => T): T => useSyncExternalStore(
-      instance.subscribe,
-      () => selector(instance.getSnapshot()),
-    )
-    const shared = { actions: instance.actions, useStore }
-    const launcherProps = { ...shared, wide: true, t } as unknown as MarketLauncherProps
-    const overlayProps = { ...shared, readLocale: () => 'en', t } as unknown as MarketOverlayProps
-    render(<>
-      <MarketLauncher {...launcherProps} />
-      <MarketOverlay {...overlayProps} />
-    </>)
-
-    expect(screen.queryByRole('dialog', { name: en.title })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: en.tab }))
-    expect(await screen.findByRole('dialog', { name: en.title })).toBeTruthy()
-    expect(await screen.findByRole('heading', { name: en.emptyTitle })).toBeTruthy()
-    fireEvent.click(screen.getAllByRole('button', { name: en.closeMarket })[1]!)
-    await waitFor(() => { expect(screen.queryByRole('dialog', { name: en.title })).toBeNull() })
   })
 })
