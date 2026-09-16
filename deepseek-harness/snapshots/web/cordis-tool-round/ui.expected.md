@@ -24,9 +24,9 @@
   - img
   - img
   - text: Think No dynamic Plugins are present, so I will define the requested Host and Client Package.
-- button "Register Cordis Plugin snapshot noop does nothing, for the snapshot Ready" [expanded]:
+- button "Register dynamic plugin snapshot noop does nothing, for the snapshot Ready" [expanded]:
   - img
-  - text: Register Cordis Plugin snapshot noop does nothing, for the snapshot Ready
+  - text: Register dynamic plugin snapshot noop does nothing, for the snapshot Ready
 - tablist "Plugin source":
   - tab "Client"
   - tab "Host" [selected]
@@ -41,7 +41,7 @@
   - img
   - text: Think The Host returned snap-1/pkg-1, so I will request its first activation.
 - img
-- text: Run Cordis Plugin snap-1 · pkg-1 Ready
+- text: Run dynamic plugin snap-1 · pkg-1 Ready
 - button "Inspect"
 - text: snap-1/pkg-1 is awaiting user approval (run-1).
 - button "Think The activation request has been submitted, so I will return the requested readiness marker.":
@@ -83,7 +83,7 @@
   - text: 1 tool call
   - img
 - img
-- text: Stop Cordis Plugin snap-1
+- text: Stop dynamic plugin snap-1
 - button "Inspect"
 - text: Dynamic Plugin snap-1 is stopped; its definition and versions remain.
 - paragraph: CORDIS_UI_DONE

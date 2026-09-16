@@ -54,9 +54,9 @@ describe('tool-call-model', () => {
     // Every define/run pair the model makes puts a row in the flow, so the
     // generic "Tool call · cordis_run · dyn-1" fallback is user-visible slop.
     const titleOf = (name: string) => toolRowModel(name, running({ name, argsRaw: '{"id":"dyn-1"}' }))
-    expect(t(titleOf('cordis_run').titleKey)).toBe('运行 Cordis 插件')
-    expect(t(titleOf('cordis_stop').titleKey)).toBe('停止 Cordis 插件')
-    expect(t(titleOf('cordis_undefine').titleKey)).toBe('移除 Cordis 插件')
+    expect(t(titleOf('cordis_run').titleKey)).toBe('运行动态插件')
+    expect(t(titleOf('cordis_stop').titleKey)).toBe('停止动态插件')
+    expect(t(titleOf('cordis_undefine').titleKey)).toBe('移除动态插件')
     // An owned title takes the tool name out of the summary slot, leaving the
     // package id as the only mutable text.
     expect(titleOf('cordis_run').summary).toBe('dyn-1')

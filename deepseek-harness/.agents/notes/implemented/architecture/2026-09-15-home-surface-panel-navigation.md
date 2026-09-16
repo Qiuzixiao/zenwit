@@ -43,6 +43,8 @@ A plugin that registers a main panel is reachable from the moment the app opens,
 
 The home body now has two layouts, so `.homePluginPage` spans the rows the intro and project body occupied. Panel selection remains transient and resets on reload. Adding a panel entry changes the home header width, which the navigation row absorbs by shrinking rather than wrapping.
 
+Product copy names the feature `动态插件` / `Dynamic plugins` in the chrome seat, the panel, and the lifecycle tool cards; the model-facing prompt and tool descriptions keep the framework's own name, which is what the model acts on.
+
 The workspace sidebar is now only the project file tree. Settings and the plugin panel are chrome destinations that exist on every surface, including those without a sidebar. A registrant that also offered a duplicate sidebar launcher — the plugin market — keeps only its first-level panel and its settings tab.
 
 Verification is the workbench client suite: `tests/home.client.spec.tsx` asserts both chrome seats render, that a registered entry is a navigation button with the right selected state, that selecting it reaches the owner, and that the panel body replaces the built-in body; `tests/frame-navigation.client.spec.tsx` asserts the workspace tool row renders the seats and that opening a project clears the selection first; `tests/workspace.client.spec.tsx` keeps covering the sidebar without a footer. The plugin market's duplicate-launcher removal is covered by its `tests/client-index.spec.ts` and `tests/browser-plugin.spec.ts`. The package's types are covered by the client aggregate check (`tsc -b tsconfig.client.json`).

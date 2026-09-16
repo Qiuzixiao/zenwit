@@ -4,11 +4,11 @@ export const NS = 'cordis'
 
 /** Simplified Chinese Cordis UI messages. */
 export const zh = {
-  'row.defineTitle': '注册 Cordis 插件',
-  'row.runTitle': '运行 Cordis 插件',
-  'row.updateTitle': '更新 Cordis 插件',
-  'row.stopTitle': '停止 Cordis 插件',
-  'row.removeTitle': '移除 Cordis 插件',
+  'row.defineTitle': '注册动态插件',
+  'row.runTitle': '运行动态插件',
+  'row.updateTitle': '更新动态插件',
+  'row.stopTitle': '停止动态插件',
+  'row.removeTitle': '移除动态插件',
   'purpose.missing': '(未填写用途)',
   'status.idle': '待激活',
   'status.awaitingApproval': '待审批',
@@ -70,11 +70,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** English Cordis UI messages. */
 export const en = {
-  'row.defineTitle': 'Register Cordis Plugin',
-  'row.runTitle': 'Run Cordis Plugin',
-  'row.updateTitle': 'Update Cordis Plugin',
-  'row.stopTitle': 'Stop Cordis Plugin',
-  'row.removeTitle': 'Remove Cordis Plugin',
+  'row.defineTitle': 'Register dynamic plugin',
+  'row.runTitle': 'Run dynamic plugin',
+  'row.updateTitle': 'Update dynamic plugin',
+  'row.stopTitle': 'Stop dynamic plugin',
+  'row.removeTitle': 'Remove dynamic plugin',
   'purpose.missing': '(no purpose given)',
   'status.idle': 'Ready',
   'status.awaitingApproval': 'Awaiting approval',

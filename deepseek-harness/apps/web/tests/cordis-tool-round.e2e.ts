@@ -180,9 +180,9 @@ describe('web e2e: Cordis tools use their owned cards', () => {
 
     // cordis_define does NOT go through the generic row: ui-cordis registers a
     // keyed toolview for it, and a keyed hit replaces the generic card. So the
-    // title here is the CARD's ("Cordis Plugin"), and the expanded body is the
+    // title here is the CARD's ("dynamic plugin"), and the expanded body is the
     // card's own two code sections rather than a generic args dump.
-    const defineRow = page.locator('[data-tool="cordis_define"]').filter({ hasText: 'Cordis Plugin' }).first()
+    const defineRow = page.locator('[data-tool="cordis_define"]').filter({ hasText: 'dynamic plugin' }).first()
     await expandOwningTurnProcess(page, defineRow)
     await defineRow.waitFor({ timeout: 10_000 })
     // The whole summary row is the expand toggle (unified tool-row interaction).
@@ -191,12 +191,12 @@ describe('web e2e: Cordis tools use their owned cards', () => {
     await defineRow.getByRole('tab', { name: 'Host' }).click()
     await expect.poll(() => defineRow.textContent()).toContain(PACKAGE_CODE)
 
-    const runRow = page.locator('[data-tool="cordis_run"]').filter({ hasText: 'Run Cordis Plugin' }).first()
+    const runRow = page.locator('[data-tool="cordis_run"]').filter({ hasText: 'Run dynamic plugin' }).first()
     await expandOwningTurnProcess(page, runRow)
     await runRow.waitFor({ timeout: 10_000 })
     await expect.poll(() => runRow.textContent()).toContain('snap-')
 
-    const stopRow = page.locator('[data-tool="cordis_stop"]').filter({ hasText: 'Stop Cordis Plugin' }).first()
+    const stopRow = page.locator('[data-tool="cordis_stop"]').filter({ hasText: 'Stop dynamic plugin' }).first()
     await expandOwningTurnProcess(page, stopRow)
     await stopRow.waitFor({ timeout: 10_000 })
     await expect.poll(() => stopRow.textContent()).toContain('snap-')

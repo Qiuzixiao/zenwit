@@ -36,7 +36,7 @@ export function presentInspectQueryCall(args: { platform: string; provider: stri
  */
 export function presentInspectSelfCall(args: { pluginId?: string; packageId?: string }): GenericCallView {
   const target = args.pluginId === undefined
-    ? 'dynamic Cordis Plugins'
+    ? 'dynamic plugins'
     : args.packageId === undefined ? args.pluginId : `${args.pluginId}/${args.packageId}`
   return { card: 'generic', kind: 'read', title: `Inspect ${target}` }
 }
@@ -65,7 +65,7 @@ export function presentDefineCall(args: {
   return {
     card: 'generic',
     kind: 'execute',
-    title: `Register Cordis Plugin "${args.name}" for ${target}: ${args.purpose}`,
+    title: `Register dynamic plugin "${args.name}" for ${target}: ${args.purpose}`,
     rawInput: args.code,
   }
 }
@@ -76,7 +76,7 @@ export function presentDefineCall(args: {
  * @returns replay-safe generic call presentation.
  */
 export function presentUndefineCall(args: { pluginId: string }): GenericCallView {
-  return { card: 'generic', kind: 'delete', title: `Remove Cordis Plugin ${args.pluginId}` }
+  return { card: 'generic', kind: 'delete', title: `Remove dynamic plugin ${args.pluginId}` }
 }
 
 /**
@@ -88,7 +88,7 @@ export function presentRunCall(args: { pluginId: string; packageId: string; mode
   return {
     card: 'generic',
     kind: 'execute',
-    title: `${args.mode === 'update' ? 'Update' : 'Run'} Cordis Plugin ${args.pluginId} · ${args.packageId}`,
+    title: `${args.mode === 'update' ? 'Update' : 'Run'} dynamic plugin ${args.pluginId} · ${args.packageId}`,
   }
 }
 
@@ -98,5 +98,5 @@ export function presentRunCall(args: { pluginId: string; packageId: string; mode
  * @returns replay-safe generic call presentation.
  */
 export function presentStopCall(args: { pluginId: string }): GenericCallView {
-  return { card: 'generic', kind: 'execute', title: `Stop Cordis Plugin ${args.pluginId}` }
+  return { card: 'generic', kind: 'execute', title: `Stop dynamic plugin ${args.pluginId}` }
 }
