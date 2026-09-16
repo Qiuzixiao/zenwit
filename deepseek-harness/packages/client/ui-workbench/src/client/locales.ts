@@ -2,7 +2,9 @@ import { legacyZh, legacyEn } from './legacy-locales.ts'
 /** Workbench-owned, domain-neutral product copy. */
 export const en = {
   ...legacyEn,
-  brand: 'ZENWIT', workbench: 'Workbench', home: 'Home', library: 'Project library',
+  brand: 'ZENWIT', brandMark: 'Z', workbench: 'Workbench', home: 'Home', library: 'Project library',
+  kickerProjects: 'ZENWIT / PROJECTS', kickerRecent: 'RECENT PROJECTS', kickerSelected: 'SELECTED PROJECT',
+  kickerNew: 'NEW PROJECT', kickerLibrary: 'PROJECT LIBRARY',
   welcome: 'Continue your work', intro: 'Your projects, files and conversations in one place.',
   recent: 'Recent projects', all: 'All projects', tags: 'Project tags', untagged: 'Untagged',
   search: 'Search projects', create: 'New project', name: 'Project name', tagInput: 'Tags, separated by commas',
@@ -44,7 +46,9 @@ export type WorkbenchKey = keyof typeof en
 /** Simplified Chinese dictionary with exactly the same product actions. */
 export const zh: Record<WorkbenchKey, string> = {
   ...legacyZh,
-  brand: 'ZENWIT', workbench: '工作台', home: '首页', library: '项目库',
+  brand: 'ZENWIT', brandMark: 'Z', workbench: '工作台', home: '首页', library: '项目库',
+  kickerProjects: 'ZENWIT / 项目', kickerRecent: '最近的项目', kickerSelected: '选中的项目',
+  kickerNew: '新建项目', kickerLibrary: '项目库',
   welcome: '继续你的工作', intro: '在一个工作台中管理项目、文件和对话。',
   recent: '最近项目', all: '全部项目', tags: '项目标签', untagged: '未分类',
   search: '搜索项目', create: '新建项目', name: '项目名称', tagInput: '标签，以逗号分隔',

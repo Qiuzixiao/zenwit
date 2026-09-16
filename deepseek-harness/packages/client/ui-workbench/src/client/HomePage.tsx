@@ -231,7 +231,7 @@ export function HomePage({
 
       {activePanel === null && <section className={css.homeIntro} aria-labelledby="home-title">
         <div>
-          <span className={css.sectionKicker}>ZENWIT / PROJECTS</span>
+          <span className={css.sectionKicker}>{t('kickerProjects')}</span>
           <h1 id="home-title">{t("legacy.015")}</h1>
           <p>{t("legacy.016")}</p>
         </div>
@@ -255,7 +255,7 @@ export function HomePage({
         <section className={css.projectPanel} aria-labelledby="project-list-title">
           <div className={css.panelHeader}>
             <div>
-              <span className={css.sectionKicker}>RECENT PROJECTS</span>
+              <span className={css.sectionKicker}>{t('kickerRecent')}</span>
               <h2 id="project-list-title">{t("legacy.020")}</h2>
             </div>
             <button className={css.textAction} type="button" onClick={openLibrary}>{t("legacy.021")}<ChevronRight size={14} aria-hidden="true"/></button>
@@ -287,7 +287,7 @@ export function HomePage({
 
         <aside className={css.detailPanel} aria-label={t("legacy.027")}>
           {selectedProject === null ? (<div className={css.detailEmpty}><Sparkles size={20} aria-hidden="true"/><span>{t("legacy.028")}</span></div>) : (<>
-              <div className={css.detailHeader}><span className={css.sectionKicker}>SELECTED PROJECT</span><span className={css.detailIndex}>01</span></div>
+              <div className={css.detailHeader}><span className={css.sectionKicker}>{t('kickerSelected')}</span><span className={css.detailIndex}>01</span></div>
               <div className={css.detailIdentity}><span className={css.detailGlyph} aria-hidden="true"><FolderOpen size={20}/></span><h2>{selectedProject.name}</h2></div>
               <dl className={css.detailFacts}>
                 <div><dt>{t("legacy.030")}</dt><dd>{formatTime(selectedProject.updatedAt, t)}</dd></div>
@@ -333,7 +333,7 @@ export function HomePage({
 
       {showCreate && (<div className={css.modalOverlay} onClick={cancelCreate}>
           <div className={css.modal} role="dialog" aria-modal="true" aria-label={t("legacy.026")} onClick={event => event.stopPropagation()}>
-            <div className={css.modalHeader}><span className={css.sectionKicker}>NEW PROJECT</span><button className={css.modalClose} type="button" aria-label={t("legacy.041")} onClick={cancelCreate}><X size={15} aria-hidden="true"/></button></div>
+            <div className={css.modalHeader}><span className={css.sectionKicker}>{t('kickerNew')}</span><button className={css.modalClose} type="button" aria-label={t("legacy.041")} onClick={cancelCreate}><X size={15} aria-hidden="true"/></button></div>
             <h2 className={css.modalTitle}>{t("legacy.026")}</h2>
             <p className={css.modalDescription}>{t("legacy.042")}</p>
             <input className={css.modalInput} value={name} onChange={event => setName(event.target.value)} aria-label={t("legacy.043")} placeholder={t("legacy.043")} autoFocus onKeyDown={event => { if (event.key === 'Enter')

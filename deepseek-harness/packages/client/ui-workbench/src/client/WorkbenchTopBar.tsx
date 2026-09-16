@@ -33,9 +33,9 @@ export function WorkbenchTopBar({
   const homeActive = surface === 'home' && activePanel === null
   return (
     <header className={css.homeNav}>
-      <div className={css.navBrand} aria-label="Zenwit">
-        <span className={css.brandMark} aria-hidden="true">Z</span>
-        <strong>ZENWIT</strong>
+      <div className={css.navBrand} aria-label={t('brand')}>
+        <span className={css.brandMark} aria-hidden="true">{t('brandMark')}</span>
+        <strong>{t('brand')}</strong>
         <span className={css.brandDivider} aria-hidden="true" />
         <span className={css.brandContext}>{t('legacy.009')}</span>
       </div>

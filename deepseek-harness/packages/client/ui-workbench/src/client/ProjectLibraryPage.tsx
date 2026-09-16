@@ -89,7 +89,7 @@ export function ProjectLibraryPage({ list, openProject, deleteProject, forgetPro
 
       <section className={css.homeIntro} aria-labelledby="library-title">
         <div>
-          <span className={css.sectionKicker}>PROJECT LIBRARY</span>
+          <span className={css.sectionKicker}>{t('kickerLibrary')}</span>
           <h1 id="library-title">{t("legacy.007")}</h1>
           <p>{projects === null ? t('loading') : String(visible.length) + t("legacy.048")}</p>
         </div>
