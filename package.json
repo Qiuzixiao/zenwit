@@ -590,7 +590,7 @@
     "test:bilingual-docs": "node --test scripts/bilingual-docs.test.mjs",
     "check:bilingual-docs": "yarn test:bilingual-docs && node scripts/verify-bilingual-docs.mjs",
     "test:architecture-gates": "node --test scripts/market-dependency-direction.test.mjs scripts/verify-layout.test.mjs scripts/sync-vendored-runtime.test.mjs scripts/workbench-boundary.test.mjs",
-    "check:architecture": "yarn test:architecture-gates && node scripts/verify-market-dependency-direction.mjs",
+    "check:architecture": "yarn test:architecture-gates && node scripts/verify-market-dependency-direction.mjs && node scripts/verify-workbench-methods.mjs",
     "check:vendored-runtime": "node scripts/sync-vendored-runtime.mjs --check --channel stable && node scripts/sync-vendored-runtime.mjs --check --channel beta",
     "check:desktop-variants": "node scripts/verify-desktop-variants.mjs",
     "check:layout": "yarn check:bilingual-docs && yarn check:architecture && yarn check:vendored-runtime && yarn check:desktop-variants && node scripts/verify-layout.mjs",

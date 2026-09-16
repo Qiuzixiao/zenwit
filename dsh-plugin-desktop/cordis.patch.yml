@@ -11,6 +11,8 @@
       name: dsh-plugin-desktop/diagnostics
     - id: desktop-notifications
       name: dsh-plugin-desktop/notifications
+    - id: desktop-workbench-open
+      name: dsh-plugin-desktop/workbench-open
     - id: desktop-pnpm
       name: dsh-plugin-desktop/pnpm
     - id: desktop-profiles

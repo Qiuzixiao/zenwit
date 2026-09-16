@@ -2,7 +2,7 @@
  * Stylesheets enter client bundles through virtual modules, so the loader must
  * register their physical files as watch dependencies.
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -45,6 +45,37 @@ describe('client bundle CSS Modules', () => {
 
       expect(watched).toEqual([stylesheet])
       expect(output).toContain('data-plugin-css')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('client bundle CSS Modules', () => {
+  it('keeps same-named stylesheets from different directories distinct', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-client-css-collide-'))
+    try {
+      const nested = join(root, 'src', 'engine')
+      await mkdir(nested, { recursive: true })
+      const importer = join(root, 'src', 'index.ts')
+      const outer = join(root, 'src', 'theme.module.css')
+      const inner = join(nested, 'theme.module.css')
+      await writeFile(outer, '.root { color: red; }\n')
+      await writeFile(inner, '.root { color: blue; }\n')
+      const plugin = cssPlugin('dsh-css-modules-inline')
+      if (plugin.resolveId === undefined || plugin.load === undefined) {
+        throw new Error('CSS Modules plugin hooks are incomplete')
+      }
+      const load = async (stylesheet: string): Promise<string> => {
+        const virtualId = plugin.resolveId?.(stylesheet, importer)
+        if (typeof virtualId !== 'string') throw new Error('stylesheet did not resolve')
+        return (await plugin.load?.call({ addWatchFile: () => {} }, virtualId)) ?? ''
+      }
+      const first = await load(outer)
+      const second = await load(inner)
+      // A shared tag id makes the injection guard skip the second sheet.
+      expect(first).toContain('"@deepseek-ai/dsh-client-test/theme.module.css"')
+      expect(second).toContain('"@deepseek-ai/dsh-client-test/engine/theme.module.css"')
     } finally {
       await rm(root, { recursive: true, force: true })
     }

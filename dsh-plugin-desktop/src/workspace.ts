@@ -5,10 +5,20 @@ import { stat } from 'node:fs/promises'
 import { dirname, win32 } from 'node:path'
 import { promisify } from 'node:util'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
-import { apply as applyWorkspace, type WorkspaceHostContext } from 'zenwit-workspace'
+import {
+  apply as applyWorkspace,
+  createChangesOpsMethod,
+  createJobsKillMethod,
+  createJobsOutputMethod,
+  createSubagentsLiveMethod,
+  type SubagentEntry,
+  type WorkbenchSessionEvent,
+  type WorkspaceHostContext,
+} from 'zenwit-workspace'
+import { createSidechatMethods } from './workbench-sidechat.ts'
 
 export const name = 'desktop-workspace'
-export const inject = ['webServer', 'connection']
+export const inject = ['webServer', 'connection', 'sessions']
 
 export interface Config {
   homeDir?: string
@@ -58,6 +68,51 @@ export function apply(ctx: WorkspaceHostContext, config: Config = {}): void {
   const homeDir = config.homeDir ?? resolveDshHome()
   mkdirSync(homeDir, { recursive: true })
   applyWorkspace(ctx, {
+    // Host-supplied engine methods: the session log lens folds the model's own
+    // tool calls into the workbench's per-file changes view. The session log
+    // lives in the kernel, so the method is built here and joins the package's
+    // project-scoped dispatch table.
+    extra: {
+      'changes.ops': createChangesOpsMethod(sessionId =>
+        ctx.sessions?.get(sessionId)?.snapshotEvents() as readonly WorkbenchSessionEvent[] | undefined),
+      // The task page refreshes the whole subagent tree in one call: the catalog
+      // comes from the kernel subagent runtime, the live lines from each running
+      // child's session log.
+      'subagents.live': createSubagentsLiveMethod({
+        listDescendants: async (rootSessionId: string) => {
+          const subagents = ctx.get?.('subagents') as
+            | { listDescendants?(rootId: string): Promise<readonly SubagentEntry[]> }
+            | undefined
+          const list = subagents?.listDescendants
+          if (list === undefined) throw new Error('the subagent service is not mounted in this deployment')
+          return await list.call(subagents, rootSessionId)
+        },
+        readEvents: (sessionId: string) =>
+          ctx.sessions?.get(sessionId)?.snapshotEvents() as readonly WorkbenchSessionEvent[] | undefined,
+      }),
+      'jobs.output': createJobsOutputMethod({
+        readEvents: (sessionId: string) =>
+          ctx.sessions?.get(sessionId)?.snapshotEvents() as readonly WorkbenchSessionEvent[] | undefined,
+        outputLimit: 256 * 1024,
+      }),
+      'jobs.kill': createJobsKillMethod({
+        kill: (id, sessionId, reason) => {
+          const registry = ctx.get?.('jobs') as
+            | { kill?(jobId: string, owner: unknown, note: string): 'requested' | 'already-finished' }
+            | undefined
+          const cancel = registry?.kill
+          if (cancel === undefined) {
+            throw new Error('the background-job registry is not mounted in this deployment')
+          }
+          const agents = ctx.get?.('agents') as { get?(id: string): unknown } | undefined
+          return cancel.call(registry, id, agents?.get?.(sessionId), reason)
+        },
+      }),
+      // The side conversations live beside the parent session and are seeded
+      // from its log, so they are built here where the agent registry, the
+      // session log and the title service are all reachable.
+      ...createSidechatMethods(ctx),
+    },
     ...config,
     // Resolve trusted launcher aliases such as macOS /var before backend validation.
     homeDir: realpathSync(homeDir),

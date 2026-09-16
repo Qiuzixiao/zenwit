@@ -148,7 +148,7 @@
 .navLinks { display: flex; align-items: center; gap: 4px; min-width: 0; margin-left: 18px; }
 .navLinks button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px; border: 0; border-radius: var(--zw-r-sm); background: transparent; color: var(--zw-muted); font: inherit; font-size: 13px; cursor: pointer; }
 .navLinks button:hover:not(:disabled) { background: var(--zw-surface-2); color: var(--zw-ink); }
-.navLinks button:focus-visible, .navTools button:focus-visible, .filterOption:focus-visible, .projectRow:focus-visible, .detailPrimary:focus-visible, .detailDelete:focus-visible, .textAction:focus-visible, .emptyAction:focus-visible, .modalClose:focus-visible { outline: 2px solid color-mix(in srgb, var(--zw-brand) 45%, transparent); outline-offset: 2px; }
+.navLinks button:focus-visible, .navTools > button:focus-visible, .navSettings :global(button[aria-haspopup="dialog"]):focus-visible, .globalSeat :global(button[aria-haspopup="dialog"]):focus-visible, .filterOption:focus-visible, .projectRow:focus-visible, .detailPrimary:focus-visible, .detailDelete:focus-visible, .textAction:focus-visible, .emptyAction:focus-visible, .modalClose:focus-visible { outline: 2px solid color-mix(in srgb, var(--zw-brand) 45%, transparent); outline-offset: 2px; }
 .navLinks .navActive { background: var(--zw-brand-soft); color: var(--zw-brand-deep); font-weight: 600; }
 .navLinks button:disabled { cursor: not-allowed; opacity: .7; }
 .navTools { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: auto; }
@@ -330,6 +330,18 @@
 }
 .paneEditor {
   position: relative;
+}
+/* The engine's explorer in the left column: the ported tree panel fills the
+   card below the project header (the shell renders the pane itself; the
+   engine's own surface stays the middle column). */
+.engineExplorer {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 .resizeHandle {
   position: relative;
@@ -1583,19 +1595,59 @@
 
 /* Standalone shell owns navigation and keeps editor instances alive beneath plugin pages. */
 .workbenchTools { display: flex; flex: none; gap: 8px; padding: 6px 20px; border-bottom: 1px solid var(--zw-hairline); overflow-x: auto; }
-.workbenchTools button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 8px; padding: 6px 10px; background: transparent; color: var(--zw-text); cursor: pointer; white-space: nowrap; }
-.workbenchTools button[aria-pressed="true"] { background: var(--zw-brand-soft); color: var(--zw-brand); }
+/* The control rules below are CHILD-scoped and :where()-wrapped on purpose. The
+   settings seat lives inside this bar and the settings panel it opens is a DOM
+   descendant of it, so a descendant rule here reaches into the kernel's settings
+   UI. Two failure modes, both shipped: (1) as `.workbenchTools button` (0,1,1) it
+   outranked every single-class control style (0,1,0) and restyled whole settings
+   pages; (2) `:where(.workbenchTools) button` fixed the specificity but still
+   SET properties the kernel's own rules never declare — `white-space: nowrap`
+   and `align-items: center` leaked onto every settings button, which flattened
+   the Agent-preset cards into one centered unwrapped line. A child combinator
+   cannot match the panel at all, and :where() keeps any future competing class
+   rule winning. Guard: tests/workbench-chrome-styles.client.spec.ts. */
+:where(.workbenchTools) > button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 8px; padding: 6px 10px; background: transparent; color: var(--zw-text); cursor: pointer; white-space: nowrap; }
+:where(.workbenchTools) > button[aria-pressed="true"] { background: var(--zw-brand-soft); color: var(--zw-brand); }
 .workbenchTools .workbenchBackButton { color: var(--zw-brand-deep); font: 600 13px var(--dsw-font-family); transition: background 120ms, color 120ms; }
 .workbenchTools .workbenchBackButton:hover { background: var(--zw-brand-soft); color: var(--zw-brand); }
 .workbenchTools .workbenchBackButton:active { background: color-mix(in srgb, var(--zw-brand) 14%, transparent); }
 .workbenchTools .workbenchBackButton:focus-visible { outline: 2px solid color-mix(in srgb, var(--zw-brand) 38%, transparent); outline-offset: 1px; }
 .workbenchSurface, .workbenchBody { flex: 1; display: flex; min-height: 0; min-width: 0; overflow: hidden; }
+.paneEngine {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  /* The middle column carries the same rounded card as the explorer and the
+     conversation; the engine's own panel is a full-bleed dock, so its
+     background and top border are cleared below. */
+  overflow: hidden;
+  border: 1px solid var(--zw-hairline);
+  border-radius: var(--zw-r-card);
+  background: var(--zw-surface);
+  box-shadow: var(--zw-shadow);
+  color: var(--zw-text);
+}
+
+
+/* The engine mounts its own React root into this element; the embedded host
+   positions itself against it (see the engine stylesheet). */
+.engineSurface {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
 .pluginPage { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
 .globalActions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .globalSeat { display: flex; flex: none; align-items: center; justify-content: center; width: 32px; height: 32px; }
 .globalSeat :global(button[aria-haspopup="dialog"]),
 .globalSeat :global(button[data-cordis-badge]) { box-sizing: border-box; width: 32px; min-width: 32px; height: 32px; min-height: 32px; margin: 0; padding: 0; justify-content: center; border-radius: 8px; }
-.globalActions button { min-width: 34px; min-height: 32px; }
+/* Child-scoped and :where()-wrapped for the same reason as .workbenchTools
+   above: the settings seat and the panel it opens live inside this cluster. */
+:where(.globalActions) > button { min-width: 34px; min-height: 32px; }
 .workbenchError { position: fixed; right: 16px; bottom: 16px; z-index: 20; max-width: min(420px, calc(100vw - 32px)); padding: 8px 12px; border: 1px solid var(--zw-hairline); border-radius: var(--zw-r-sm); background: var(--zw-surface); color: var(--zw-text); font-size: 12px; }
 .activityPanel { --zw-bg: var(--dsw-alias-bg-base); --zw-text: var(--dsw-alias-label-primary); --zw-hairline: var(--dsw-alias-border-l2); --zw-brand-soft: var(--dsw-alias-interactive-bg-hover); --zw-brand: var(--dsw-alias-label-primary); width: min(680px, calc(100vw - 32px)); max-height: min(720px, 85vh); display: flex; flex-direction: column; gap: 0; padding: 0; border: 1px solid var(--zw-hairline); border-radius: 8px; background: var(--zw-bg); color: var(--zw-text); }
 .activityPanel > header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--zw-hairline); }

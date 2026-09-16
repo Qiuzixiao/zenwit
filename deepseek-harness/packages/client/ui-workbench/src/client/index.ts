@@ -16,8 +16,12 @@ import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { FileRequest, Panel, WorkbenchInjected, WorkbenchFiles } from './contract.ts'
 import { WorkbenchFrame } from './WorkbenchFrame.tsx'
 import { createDocumentRenderers } from './document-renderers.ts'
+import { bridgeDocumentRenderers, type EngineViewerRegistry } from './renderer-bridge.ts'
 import { registerBuiltinRenderers } from './builtin-renderers.ts'
 import { projectApi } from './project-api.ts'
+import { apply as applyEngine } from './workbench/index.tsx'
+import { openWorkbenchFile } from './workbench/intercept.tsx'
+import { referenceInChat } from './workbench/reference-in-chat.ts'
 import { resolveFilePath } from './workspace-files.ts'
 import { en, zh } from './locales.ts'
 
@@ -38,6 +42,14 @@ const FILE_CHANGE_COALESCE_MS = 250
  * @param ctx - current browser plugin context.
  */
 export function apply(ctx: Context): void {
+  // The workbench engine (file explorer, tabs, editors, previews, changes,
+  // terminal) is this product's own implementation of the center region; it
+  // mounts itself into the surface the workspace shell declares.
+  // The engine's client half types its own context (the services it reads);
+  // the kernel's Client Context is the same object with stricter optional
+  // properties, so the boundary carries one widening cast.
+  const engineCtx = ctx as unknown as Parameters<typeof applyEngine>[0]
+  const engineStore = applyEngine(engineCtx)
   ctx.effect(() => ctx.locale.register('workbench', { en, zh }), 'workbench: locale')
   const t = ctx.locale.bind('workbench')
   const fileRequest = createSnapshotStore<FileRequest | null>(null)
@@ -49,8 +61,18 @@ export function apply(ctx: Context): void {
   const files: WorkbenchFiles = {
     openFile(url, line) {
       const list = ctx.sessions.list.getSnapshot()
-      const cwd = list.current === undefined ? undefined : list.byId[list.current]?.cwd
+      const sessionId = list.current
+      const cwd = sessionId === undefined ? undefined : list.byId[sessionId]?.cwd
       const path = resolveFilePath(url, cwd)
+      // Chat and tool links land in the engine editor tab of the current
+      // session: the engine owns file opening now. The legacy request store
+      // stays published for shells that still read it.
+      const engine = ctx.get('workbenchEngine') as
+        | { openTab(seed: { type: string; path: string; id: string }, scope?: { sessionId: string; cwd?: string | undefined }): void }
+        | undefined
+      if (engine !== undefined && sessionId !== undefined) {
+        engine.openTab({ type: 'editor', path, id: `editor:${path}` }, cwd === undefined ? { sessionId } : { sessionId, cwd })
+      }
       fileRequest.set({ path, line, sequence: ++sequence })
       ctx.layout.selectPanel(null)
     },
@@ -63,7 +85,13 @@ export function apply(ctx: Context): void {
     const offRevision = documentRenderers.subscribe(() => documentRendererRevision.set(documentRenderers.revision))
     const disposeBuiltins = registerBuiltinRenderers(documentRenderers)
     const dispose = ctx.reflect.provide('documentRenderers', documentRenderers)
-    return () => { offRevision(); void dispose(); disposeBuiltins() }
+    // Plugin previewers keep working: every extension-matched declaration in
+    // the public registry is mirrored into the engine's viewer registry.
+    const engine = ctx.get('workbenchEngine') as unknown as EngineViewerRegistry | undefined
+    const disposeBridge = engine === undefined
+      ? () => undefined
+      : bridgeDocumentRenderers(documentRenderers, engine, ctx.locale.bind('workbench'))
+    return () => { offRevision(); void dispose(); disposeBuiltins(); disposeBridge() }
   }, 'workbench: document renderers')
   ctx.effect(() => ctx.inputTriggers.registerSource({
     trigger: '@', name: 'workbench-selection', order: -1,
@@ -118,6 +146,23 @@ export function apply(ctx: Context): void {
     if (current !== undefined && workspace.sessionIds.includes(current)) ctx.sessions.clear()
   }
   const injected: WorkbenchInjected = {
+    engine: {
+      store: engineStore,
+      service: ctx.get('workbenchEngine'),
+      // The left column opens files into the workspace column's tabs and
+      // references them in the conversation draft; both read the current
+      // session at click time because the shell outlives every session.
+      openFile(path) {
+        openWorkbenchFile(engineCtx, engineStore, ctx.sessions.list.getSnapshot().current ?? '', path)
+      },
+      attachRegion(element) { engineCtx.get('workbenchEngine')?.attachRegion(element) },
+      setProject(project) { engineStore.setProject(project ?? undefined) },
+      referenceFile(path, isDir) {
+        const list = ctx.sessions.list.getSnapshot()
+        const current = list.current
+        referenceInChat(engineCtx, current ?? '', current === undefined ? undefined : list.byId[current]?.cwd, path, isDir)
+      },
+    },
     api: {
       ...projectApi,
       async updateTags(path, tags) { await projectApi.adopt(path); return projectApi.updateTags(path, tags) },

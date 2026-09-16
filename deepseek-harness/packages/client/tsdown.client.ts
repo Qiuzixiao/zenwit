@@ -39,7 +39,7 @@ function styleInjectionModule(
 ): string {
   const source = [
     `const css = ${JSON.stringify(css)};`,
-    `const tagId = ${JSON.stringify(`${id}/${basename(fileId)}`)};`,
+    `const tagId = ${JSON.stringify(`${id}/${stylesheetTagName(fileId)}`)};`,
     'if (typeof document !== \'undefined\' && document.querySelector(\'style[data-plugin-css=\' + JSON.stringify(tagId) + \']\') === null) {',
     '  const tag = document.createElement(\'style\');',
     `  tag.dataset.plugin = ${JSON.stringify(id)};`,
@@ -50,6 +50,20 @@ function styleInjectionModule(
   ]
   source.push(classMap === undefined ? 'export {};' : `export default ${JSON.stringify(classMap)};`)
   return source.join('\n')
+}
+
+/**
+ * Tag name for one injected stylesheet: the package-relative source path, so
+ * two stylesheets that share a basename but live in different source
+ * directories stay distinct. The injection guard keys on this name, and a
+ * collision silently skips the second sheet.
+ * @param fileId - absolute path of the compiled stylesheet.
+ * @returns the path under the package's src directory, or its basename.
+ */
+function stylesheetTagName(fileId: string): string {
+  const boundary = fileId.lastIndexOf(SOURCE_MARKER)
+  if (boundary < 0) return basename(fileId)
+  return fileId.slice(boundary + SOURCE_MARKER.length).split(sep).join('/')
 }
 
 /**

@@ -129,6 +129,12 @@ export interface DocumentRenderers {
   subscribe(listener: () => void): () => void
   /** @returns the accepted and rejected renderers, for the settings inventory. */
   inventory(): RendererInventory
+  /**
+   * The accepted declarations, for adapters that mirror this registry into
+   * another one (the engine viewer adapter reads them).
+   * @returns every live declaration in registration order.
+   */
+  declarations(): readonly RendererDeclaration[]
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -241,5 +247,6 @@ export function createDocumentRenderers(supportedContract: number = DOCUMENT_REN
         rejected: [...rejected],
       }
     },
+    declarations(): readonly RendererDeclaration[] { return declarations },
   }
 }

@@ -75,7 +75,15 @@
       "types": "./lib/types/updates.d.ts",
       "default": "./lib/updates.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./workbench-open": {
+      "types": "./lib/types/workbench-open.d.ts",
+      "default": "./lib/workbench-open.js"
+    },
+    "./workbench-sidechat": {
+      "types": "./lib/types/workbench-sidechat.d.ts",
+      "default": "./lib/workbench-sidechat.js"
+    }
   },
   "files": [
     "build/app-icon.ico",

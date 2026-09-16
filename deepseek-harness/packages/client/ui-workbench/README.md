@@ -1,5 +1,5 @@
 ---
-description: "Standalone browser workbench with a project library, file editor, and slot-composed chat."
+description: "Standalone browser workbench: project library, the workbench engine surface, and slot-composed chat."
 kind: "package-reference"
 ---
 
@@ -9,35 +9,33 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The sole browser `root` owner. Home and the project library lead into a resizable file-manager / editor / conversation workspace. This package migrates the former product UI without a short-drama agent, domain schema, or removed client-runtime dependency. Project tags, search, creation and deletion remain available.
+The sole browser `root` owner. Home and the project library lead into the workspace: the **workbench engine** surface (explorer, tabs, editors, previews, changes, terminal) beside the conversation column. The engine is this product's own implementation, applied by this package and mounted into the region the workspace declares; the file APIs it calls are the Host's `/api/desktop/workbench` endpoints. Project tags, search, creation and deletion remain available.
 
 ## Use this package
 
-Mount with the API session/workspace controllers, `ui-renderer`, `ui-session`, the service-only `ui-layout` and `ui-workspace`, locale, conversation, and input-trigger plugins. Keep `ui-settings-general` and the desired settings extensions; keep `ui-reference` for generic `@` file/session candidates. The Host must serve the existing generic `/api/desktop/projects` endpoints.
+Mount with the API session/workspace controllers, `ui-renderer`, `ui-session`, the service-only `ui-layout` and `ui-workspace`, locale, conversation, and input-trigger plugins. Keep `ui-settings-general` and the desired settings extensions; keep `ui-reference` for generic `@` file/session candidates. The Host must serve the generic `/api/desktop/projects` endpoints and the workbench engine endpoints (methods, streaming upload, media bytes, sandboxed HTML preview, project change feed).
 
-The root exclusively declares `main` (keyed root), `sidebar.settings` (single root), `sidebar.panellist` (list root), and `shell.overlay` (list root). The workspace renders the settings seat with `{ wide: true }`; the home and project-library surfaces render it with `{ wide: false }` in the tool row of the chrome they share. Registered `sidebar.panellist` entries are first-level navigation on both built-in surfaces and tool-row entries in the workspace; the selected `main` key hosts the page in the home body or in the workspace center pane, where the document editors stay mounted. The `conversation` key in `main` renders on the right. Do not mount another root owner, SidebarRoot, a visual ui-workspace browser, or a rightbar owner; this package uses no shadow priority.
+The root exclusively declares `main` (keyed root), `sidebar.settings` (single root), `sidebar.panellist` (list root), `sidebar.footer.action` (list root), `shell.overlay` (list root) and the two directory-flow holes. Both built-in surfaces render the settings seat with `{ wide: false }` in the tool row of the chrome they share, so the seat draws the 32px rail metric instead of the label row (the settings panel that seat opens is a DOM descendant of that chrome bar — see `tests/workbench-chrome-styles.client.spec.ts` for the selector-specificity guard this requires). Registered `sidebar.panellist` entries are first-level navigation on both built-in surfaces and tool-row entries in the workspace; the selected `main` key hosts the page in the home body or, in the workspace, **in place of** the engine surface (the engine stays mounted but hidden, so its state survives). The `conversation` key in `main` renders on the right. Do not mount another root owner, SidebarRoot, a visual ui-workspace browser, or a rightbar owner; this package uses no shadow priority.
 
-Chat/tool file links call the typed `ctx.workbenchFiles.openFile(path, line?)` service. It accepts project-relative paths, absolute local paths and local file URLs, rejects traversal outside the selected project, and reveals a requested line in source mode. Selection-to-chat captures unsaved text in a structured input reference, optionally in a new session; it never submits automatically.
+Chat/tool file links call the typed `ctx.workbenchFiles.openFile(path, line?)` service. It accepts project-relative paths, absolute local paths and local file URLs, rejects traversal outside the selected project, and opens the file in the engine's editor tab of the current session. Selection-to-chat captures unsaved text in a structured input reference, optionally in a new session; it never submits automatically.
 
 ## Understand the implementation
 
-Chat width follows the available workspace space and remembers the user's expanded width across window resizing. Dragging toward the right edge collapses the pane; dragging its divider left expands it. Clicking expand restores the width from before collapse. Narrow chat headers use icon actions, and the conversation composer owns its responsive toolbar layout.
+`WorkbenchFrame.tsx` owns page selection, panel hosting and titles; `WorkbenchTopBar.tsx` renders the brand, the first-level navigation and the settings seat for every built-in surface, so their chrome cannot drift apart; `HomePage.tsx` offers the registered panel entries beside the built-in surfaces and hosts the selected one. `Workspace.tsx` is the workspace shell: it declares the engine region (`[data-zenwit-workbench-surface]`) and owns the conversation column's geometry. The engine mounts its own React root into that region; without the attribute it falls back to a viewport-pinned overlay.
 
-`WorkbenchFrame.tsx` owns page selection, panel hosting and titles; `WorkbenchTopBar.tsx` renders the brand, the first-level navigation and the settings seat for every built-in surface, so their chrome cannot drift apart; `HomePage.tsx` offers the registered panel entries beside the built-in surfaces and hosts the selected one. `Workspace.tsx` owns workspace interaction and document lifetimes. `workspace-files.ts` owns file-path validation, tree filtering and persisted tab metadata. `Editor.tsx` retains Milkdown visual Markdown, GFM, undo/redo, search, outline navigation, selection capture and CodeMirror source editing. `ScrollDots.tsx` retains keyboard- and pointer-operable scroll handles. UI copy is registered in typed English and Chinese dictionaries.
+`workbench/` is the engine. Its entry registers the engine service (`ctx.workbenchEngine`), the locale dictionaries and the built-in tab/viewer descriptors, and mounts the shell. The explorer, tab strip, editor host, previews, change views, diff renderer, terminal, browser, task page and side chat live in `workbench/` submodules; heavy views (editor, terminal, diagrams) load through `workbench/chunk-loader.ts`. The engine reads files through the Host's method API (`fs.tree`, `fs.read`, `fs.write`, `fs.rename`, `fs.remove`, `fs.search`, `git.*`), streams uploads, and renders previews from the media and sandboxed HTML routes.
 
-Both rendered lists are bounded: the tree shares one 400-row render budget across its whole recursion, and the quick-open dialog renders at most 100 rows, each with a notice that says how to see the rest. A filter query no longer expands every directory into one element per node. Project change events collapse into at most one `fileRevision` bump per 250 ms window: one bump costs the Host a whole-project scan, and a build writes thousands of files while the app runs. A structure response is derived into the flattened file list once per response, a superseded response is cancelled before its JSON is parsed, and the tree reports the Host `truncated` flag instead of implying completeness.
+`renderer-bridge.ts` mirrors the public `ctx.documentRenderers` registry into the engine's viewer registry, so a plugin that contributed an extension-matched preview view keeps rendering unchanged. Built-in renderers stay the engine's own; a renderer that declares only media types is not bridged.
 
-File editing preserves autosave, serial draft backups, external-change reconciliation, conflict comparison, explicit overwrite, local-copy preservation, import, new file/folder, rename, delete, and safe close/leave flows. Newly created files open immediately. Normal reads omit `sync=1` so persisted drafts can recover; synchronization reads include it. Saves carry `expectedContent`; 409 responses keep local edits and pause autosave. Host change-feed observation belongs to the plugin effect and reaches React through a renderer-bound hook. File revisions and service registrations are disposed with the plugin.
-
-The Host endpoints used by the migrated UI are: project list/create/tag update, project delete, structure, file read/save/draft/discard, node create/rename/delete, import, changes (SSE), reveal and terminal. Host-native reveal/terminal actions remain explicit menu actions and may be unavailable on remote deployments.
+Both rendered lists are bounded, the file tree loads directories lazily (one level per expand) and the filename search runs on the Host. Save flows preserve autosave, draft recovery, external-change reconciliation and conflict handling; the engine owns document lifetimes and reports every file operation through the Host's project-scoped API.
 
 ## Validation
 
-Focused package tests cover registration and teardown, local-path confinement, tab restoration, project API failures, new-file opening, persisted-draft recovery, save conflicts and edits arriving during an in-flight save. Compile with the kernel TypeScript compiler against this package's `tsconfig.json`; bundle with the shared `tsdown.config.ts`. Real browser composition is covered by the integrating application's `apps/web/tests/workbench.e2e.ts`.
+Focused package tests cover root registration and teardown, the workspace shell's engine region and panel hand-off, the renderer bridge, local-path confinement, session-browser behavior and the project API. The engine's Host half (filesystem, Git, search, preview routes) is covered by `zenwit-workspace`'s own suites. Compile with the kernel TypeScript compiler against this package's `tsconfig.json`; bundle with the shared `clientBundle` preset.
 
 ## Model Experience
 
-Shell navigation and file editing do not send model requests. Adding a selection stages the captured text as a file reference; it becomes model-visible only when the user submits the conversation.
+None, as shell navigation and file editing register no model input; the captured text is staged as a file reference and becomes model-visible only when the user submits the conversation.
 
 #### KV Cache effect
 
@@ -45,10 +43,11 @@ None from navigation or editing. A subsequently submitted selection changes the 
 
 ## Known Limitations and Deferred Work
 
-- The API remains a host-owned same-origin HTTP/SSE capability; this package does not implement filesystem authority or storage.
-- Milkdown, CodeMirror language grammars, PDF.js workers/fonts and image decoders are bundled in the browser artifact. Markdown (`.md`, `.markdown`, `.mdown`) supports visual/source editing; HTML and SVG support source/preview switching; images and PDFs are read-only previews. HTML packages direct relative classic `.js`, stylesheet `.css`, and image `src` resources inside the same project, within 64 assets, 4 MiB per asset and 32 MiB total. Local CSS imports/URLs, ES modules, runtime fetches and development-server routing are not bundled.
-- File editing remains a substantial migrated workspace component. Path/tab helpers and editor instances are separate, while cross-document autosave/conflict actions remain together to retain their ordering.
-- The file tree renders whatever one bounded structure response carries. The Host omits `node_modules` and stops at its entry budget; there is no per-directory lazy loading yet, so a project beyond that budget shows a truncated tree rather than fetching the remainder on demand.
+- The API remains a host-owned same-origin HTTP capability; this package does not implement filesystem authority or storage.
+- The client artifact now carries the editor, terminal and diagram stacks (the kernel builds one dynamic bundle per package), so start-up pays for views the user may not open. Restoring per-view lazy loading needs split build artifacts and a Host chunk route.
+- A contributed preview view is bridged only when it declares file extensions; media-type-only declarations wait for engine-side sniffing.
+- The HTML preview serves the saved file and its project-relative assets directly from the preview route; it does not bundle a page into a single document.
+- The side-conversation methods are host-supplied: they reach this package only through the Host's `extra` dispatch table, so a deployment without them answers 501 for `sidechat.*`. Every method the browser half calls now has a host implementation (`scripts/verify-workbench-methods.mjs` fails when either side of the Client/Host method contract drifts).
 
 ### Dev Note
 

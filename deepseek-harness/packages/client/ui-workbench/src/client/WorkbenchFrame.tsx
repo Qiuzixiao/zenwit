@@ -95,6 +95,13 @@ export function WorkbenchFrame(props: WorkbenchProps) {
   }, [projectPath, surface, t])
   const busy = sessions.phase !== 'ready' || workspaceState.phase !== 'ready'
   const showWorkspace = surface === 'workspace' && !!projectPath
+  const engine = props.engine
+  // The home and project-library surfaces have no engine region: say so, so the
+  // workbench stays hidden instead of floating over those pages. The workspace
+  // hands its own region over when it mounts.
+  useEffect(() => {
+    if (!showWorkspace) engine.attachRegion(null)
+  }, [engine, showWorkspace])
   return <div className={css.frame} data-workbench-frame="true">
     {showWorkspace && <nav className={css.workbenchTools} aria-label={t('panels')}>
       <button className={css.workbenchBackButton} type="button" onClick={() => requestWorkspaceClose?.()} disabled={requestWorkspaceClose === null}><ArrowLeft size={16} />{t('legacy.012')}</button>

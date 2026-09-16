@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apply, inject, nativeAction } from '../src/workspace.ts'
-import { PROJECT_API_PATHS } from 'zenwit-workspace'
+import { PREVIEW_HTML_PREFIX, PROJECT_API_PATHS, WORKBENCH_API_PATHS } from 'zenwit-workspace'
 
 const native = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn() }))
 vi.mock('node:child_process', () => native)
@@ -112,8 +112,16 @@ describe('desktop workspace native adapter', () => {
       connection: { requestRejection: () => rejection },
       effect: callback => { effects.push(callback()) },
     }, { projectsDir: join(directory, 'projects'), ...(explicitHome ? { homeDir: homeAlias } : {}) })
-    expect(inject).toEqual(['webServer', 'connection'])
-    expect([...routes.keys()]).toEqual([...PROJECT_API_PATHS])
+    // The plugin also carries the engine's host-supplied methods, which read
+    // the session log through the kernel session store.
+    expect(inject).toEqual(['webServer', 'connection', 'sessions'])
+    // Both APIs register on the same fence: the project library and the
+    // workbench engine (including its media route and the HTML preview prefix).
+    expect([...routes.keys()]).toEqual([
+      ...PROJECT_API_PATHS,
+      ...WORKBENCH_API_PATHS,
+      PREVIEW_HTML_PREFIX.replace(/\/$/u, ''),
+    ])
     const post = (suffix: string, body: unknown, headers: Record<string, string> = {}) => fetch(origin + '/api/desktop/projects' + suffix, {
       method: 'POST', headers: { origin, 'content-type': 'application/json', ...headers }, body: JSON.stringify(body),
     })

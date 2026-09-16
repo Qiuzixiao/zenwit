@@ -5,7 +5,8 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, readdi
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { once } from 'node:events'
-import { createWorkspaceBackend, PROJECT_API_PATHS, apply, inject } from '../lib/index.js'
+import { createWorkspaceBackend, PROJECT_API_PATHS, WORKBENCH_API_PATHS, apply, inject } from '../lib/index.js'
+import { PREVIEW_HTML_PREFIX } from '../lib/workbench/preview.js'
 import { DocumentRecoveryStore } from '../lib/document-recovery.js'
 
 async function fixture(t, extra = {}) {
@@ -277,8 +278,13 @@ test('Cordis face registers exact routes with connection fence and lifecycle dis
     connection: { requestRejection: () => 401 },
     effect(callback) { cleanup.push(callback()) },
   }, { homeDir: f.homeDir, projectsDir: f.projectsDir })
-  assert.deepEqual(routes.map(route => route.path), PROJECT_API_PATHS)
-  assert.ok(routes.every(route => route.kind === 'exact'))
+  assert.deepEqual(routes.map(route => route.path), [
+    ...PROJECT_API_PATHS,
+    ...WORKBENCH_API_PATHS,
+    PREVIEW_HTML_PREFIX.replace(/\/$/u, ''),
+  ])
+  assert.ok(routes.every(route => route.kind === 'exact' || route.kind === 'prefix'))
+  assert.equal(routes.filter(route => route.kind === 'prefix').length, 1)
   let code, body
   await routes[0].handler({}, { writeHead(status) { code = status }, end(value) { body = value } })
   assert.equal(code, 401)

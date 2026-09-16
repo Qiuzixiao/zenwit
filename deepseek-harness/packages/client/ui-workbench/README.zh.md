@@ -1,5 +1,5 @@
 ---
-description: "独立浏览器工作台：项目库、文件编辑器与插槽组合的对话。"
+description: "独立的浏览器工作台：项目库、工作台引擎区域，以及由插槽组合的对话。"
 kind: "package-reference"
 ---
 
@@ -9,47 +9,46 @@ kind: "package-reference"
 
 ## 概要
 
-本包是唯一的浏览器 `root` 所有者。首页和项目库进入可调整宽度的文件管理器／编辑器／对话三栏工作区。迁移旧产品界面，保留项目标签、搜索、创建和删除，不依赖短剧 Agent、领域数据或已移除的 client-runtime。
+浏览器 `root` 的唯一拥有者。首页与项目库进入工作区：**工作台引擎**区域（资源管理器、标签、编辑器、预览、变更、终端）与对话列并排。引擎是本产品自己的实现，由本包启动并挂载到工作区声明的区域；它调用的文件接口是宿主端的 `/api/desktop/workbench` 端点。项目标签、搜索、创建与删除照旧可用。
 
-## 使用
+## 使用本包
 
-与 API session/workspace controllers、ui-renderer、ui-session、仅提供服务的 ui-layout 和 ui-workspace、locale、conversation、input-trigger 一起挂载。保留 ui-settings-general 及需要的设置扩展；通用 `@` 文件和会话候选由 ui-reference 提供。Host 提供既有通用 `/api/desktop/projects` 接口。
+与 API 会话/工作区控制器、`ui-renderer`、`ui-session`、仅服务的 `ui-layout` 与 `ui-workspace`、locale、conversation、input-trigger 一起挂载。保留 `ui-settings-general` 与所需的设置扩展；保留 `ui-reference` 以提供通用的 `@` 文件/会话候选。宿主必须提供通用的 `/api/desktop/projects` 端点以及工作台引擎端点（方法调用、流式上传、媒体字节流、沙箱 HTML 预览、项目变更流）。
 
-根节点独占声明 `main`（keyed root）、`sidebar.settings`（single root）、`sidebar.panellist`（list root）、`shell.overlay`（list root）。工作区以 `{ wide: true }` 渲染设置座位，首页与项目库则在两者共用的外框工具栏里以 `{ wide: false }` 渲染它。已注册的 `sidebar.panellist` 条目在两个内置界面上都是一级导航，在工作区是工具行条目；被选中的 `main` 键在首页主体或工作区中间窗格承载页面，文档编辑器保持挂载。main 的 conversation 项在右侧显示。不得再挂载其他根界面、SidebarRoot、ui-workspace 原生浏览器或 rightbar 所有者；本包不使用覆盖优先级。
+根槽位只声明 `main`（keyed root）、`sidebar.settings`（single root）、`sidebar.panellist`（list root）、`sidebar.footer.action`（list root）、`shell.overlay`（list root）以及两个目录选择孔。两个内置界面都在共享顶栏的工具行里以 `{ wide: false }` 渲染设置座位（座位按 32px 的栏位尺寸绘制，不出现带文字的宽行）；该座位打开的设置面板是这条顶栏的 DOM 后代，因此顶栏规则的选择器权重受 `tests/workbench-chrome-styles.client.spec.ts` 守卫。注册到 `sidebar.panellist` 的条目在两个内置界面都是一级导航，在工作区里同时是工具行条目；被选中的 `main` 键把页面托管在首页主体，或在工作区里**顶替**引擎区域（引擎保持挂载但隐藏，状态不丢）。`main` 里的 `conversation` 键渲染在右侧。不要再挂载第二个根拥有者、SidebarRoot、可视化 ui-workspace 浏览器或右侧栏拥有者；本包不使用阴影优先级。
 
-聊天和工具文件链接调用 `ctx.workbenchFiles.openFile(path, line?)`。支持项目相对路径、绝对本地路径和本地 file URL；拒绝越出当前项目的路径；指定行号时切换源码并定位。选区引用保存未提交的编辑内容，可加入当前或新会话，不会自动发送。
+聊天与工具卡片的文件链接调用带类型的 `ctx.workbenchFiles.openFile(path, line?)` 服务：接受项目相对路径、绝对本地路径与本地文件 URL，拒绝越出当前项目的路径，并在当前会话的引擎编辑器标签里打开文件。选区进对话会把未保存文本作为结构化输入引用暂存，可在新会话中提交；它绝不自动提交。
 
-## 实现
+## 实现说明
 
-对话区宽度根据工作台可用空间调整，窗口缩放时保留用户设定的展开宽度。向右侧边缘拖拽可折叠，向左拖拽分隔线可展开；点击展开恢复折叠前的宽度。窄对话区的顶部操作显示为图标，输入框工具栏的响应式布局由 conversation 负责。
+`WorkbenchFrame.tsx` 负责页面选择、面板托管与标题；`WorkbenchTopBar.tsx` 为所有内置界面渲染品牌、一级导航与设置座位，避免各处顶栏走样；`HomePage.tsx` 在内置界面旁列出已注册的面板条目并托管被选中的那个。`Workspace.tsx` 是工作区外壳：它声明引擎区域（`[data-zenwit-workbench-surface]`）并负责对话列的几何。引擎把自己的 React 根挂进那个区域；没有该属性时退回自带的全视口浮层。
 
-WorkbenchFrame 负责页面、面板承载和标题，WorkbenchTopBar 为每个内置界面渲染品牌、一级导航与设置座位（因此外框不会各自漂移），HomePage 在两个内置界面旁列出已注册的面板条目并承载被选中的那一个；Workspace 负责工作区交互和文档生命周期；workspace-files 负责路径校验、文件树筛选和页签持久化；Editor 保留 Milkdown 可视化 Markdown、GFM、撤销重做、搜索、大纲、选区和 CodeMirror 源码编辑；ScrollDots 保留键盘与指针滚动。产品文案通过类型化中英词典注册。
+`workbench/` 就是引擎。它的入口注册引擎服务（`ctx.workbenchEngine`）、语言字典与内置标签/预览器描述符，并挂载外壳。资源管理器、标签条、编辑器宿主、预览、变更视图、diff 渲染器、终端、浏览器、任务页与侧边对话都在 `workbench/` 的子模块里；重依赖视图（编辑器、终端、图表）经 `workbench/chunk-loader.ts` 加载。引擎通过宿主的方法接口读写文件（`fs.tree`、`fs.read`、`fs.write`、`fs.rename`、`fs.remove`、`fs.search`、`git.*`），流式上传，并从媒体路由与沙箱 HTML 路由渲染预览。
 
-保留自动保存、串行草稿备份、外部变更同步、冲突对比、明确覆盖、保留本地副本、导入、新建文件／目录、重命名、删除和关闭／离开保护。新建文件后自动打开。普通读取不带 sync=1，以便恢复草稿；同步读取带 sync=1。保存携带 expectedContent，409 保留本地编辑并暂停自动保存。Host SSE 监听由插件 effect 持有，通过框架绑定的 hook 进入 React，并随插件释放。
+`renderer-bridge.ts` 把对外的 `ctx.documentRenderers` 注册表镜像进引擎的预览器注册表，因此贡献了按扩展名匹配预览视图的插件无需改动即可继续渲染。内置预览器仍归引擎自己；只声明媒体类型的渲染器不会被桥接。
 
-两个被渲染的列表都有界：文件树把一份 400 行的渲染预算贯穿整个递归，快速打开对话框最多渲染 100 行，并各自说明如何查看其余结果。过滤查询不再把所有目录展开成"每个节点一个元素"。项目变更事件每 250 ms 窗口最多合并为一次 fileRevision 自增：一次自增会让 Host 扫描整个项目，而构建会在应用运行时写入数千个文件。每份结构响应只拍平一次，过期响应在解析 JSON 之前就被取消，文件树改用 Host 的 truncated 标记，而不是暗示内容完整。
-
-接口覆盖项目列表／创建／标签更新／删除、structure、file 读取／保存／草稿／清理、node 创建／重命名／删除、import、changes（SSE）、reveal 和 terminal。本地文件管理器与终端由用户菜单操作显式打开，远程部署可能不支持。
+两处列表渲染都有上界，文件树按目录懒加载（展开一层读一层），文件名搜索在宿主端执行。保存流程保留自动保存、草稿恢复、外部改动对账与冲突处理；文档生命周期归引擎，所有文件操作都经宿主的项目作用域接口完成。
 
 ## 验证
 
-包内测试覆盖注册释放、路径边界、页签恢复、项目接口错误、新建文件自动打开、草稿恢复、保存冲突与保存期间继续输入。使用内核 TypeScript 对本包 tsconfig.json 编译，并通过共享 tsdown 配置打包。实际浏览器组合测试由集成应用的 apps/web/tests/workbench.e2e.ts 负责。
+包内聚焦用例覆盖根注册与拆除、工作区外壳的引擎区域与面板让位、渲染器桥接、本地路径限制、会话浏览器行为与项目接口。引擎的宿主半（文件系统、Git、搜索、预览路由）由 `zenwit-workspace` 自己的测试覆盖。用内核的 TypeScript 编译器按本包 `tsconfig.json` 编译；用共享的 `clientBundle` 预设打包。
 
-## Model Experience
+## 模型体验
 
-导航和文件编辑不发送模型请求。选区操作仅把当前内容暂存为文件引用，用户提交对话后才进入模型输入。
+无：界面导航与文件编辑不注册任何模型输入；捕获的文本只是暂存为文件引用，只有用户提交对话后它才对模型可见。
 
-#### KV Cache effect
+#### KV 缓存影响
 
-导航和编辑不影响缓存；后续提交的选区按既有引用序列化逻辑改变提示词。
+导航与编辑没有任何影响。随后提交的选区按常规的对话引用序列化改变提示词。
 
 ## 已知限制与后续工作
 
-- HTTP/SSE 文件能力由同源 Host 实现，本包不负责文件系统权限与存储。
-- Milkdown、CodeMirror 语言语法以及 PDF.js 的 Worker、字体和图片解码器打入浏览器产物。Markdown（`.md`、`.markdown`、`.mdown`）支持可视化／源码编辑；HTML 和 SVG 支持源码／预览切换；图片和 PDF 为只读预览。HTML 打包同一项目内直接相对引用的普通 `.js`、样式表 `.css` 和图片 `src`，限制为 64 个资源、单项 4 MiB、总量 32 MiB；不打包本地 CSS 导入／URL、ES 模块、运行时 fetch 和开发服务器路由。
-- Workspace 保留较大的迁移交互组件；路径／页签和编辑器已分离，跨文档保存与冲突操作保持在一起以保留时序。
-- 文件树只渲染单次有界结构响应所携带的内容。Host 跳过 `node_modules` 并在条目预算处停止；目前没有按目录惰性加载，因此超出预算的项目显示被截断的树，而不会按需拉取剩余部分。
+- 接口仍是宿主拥有的同源 HTTP 能力；本包不实现文件系统权限或存储。
+- 客户端产物现在包含编辑器、终端与图表三套依赖（内核每个包只产出一个动态包），启动时会为未必打开的视图付出代价。恢复逐视图懒加载需要拆分的构建产物与宿主分片路由。
+- 贡献的预览视图只有在声明了文件扩展名时才会被桥接；只声明媒体类型的要等引擎侧的嗅探。
+- HTML 预览直接从预览路由提供已保存文件与其项目内相对资源；它不把一个页面打包成单一文档。
+- 侧边对话方法由宿主提供：它只通过宿主的 `extra` 派发表进入本包，因此未接该方法的部署对 `sidechat.*` 一律答 501。浏览器半调用的方法现在都有宿主实现（`scripts/verify-workbench-methods.mjs` 会在客户端/宿主方法约定漂移时失败）。
 
-### 开发说明
+### 开发注记
 
-不声明 runtime invariant：本包只提供界面和 effect 注册，没有独立重建的持久状态。配置、聚合构建接线及仓库 Agent Note 由集成改动负责；实现和测试仅位于本目录。
+不发布运行时不变式：本包只增加展示与 effect 拥有的注册，没有可独立重建的持久状态可比较。集成改动必须自行负责 profile/聚合接线与仓库级 Agent Note；包内实现与测试仍留在本目录。

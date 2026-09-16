@@ -8,6 +8,8 @@ import type { WorkbenchKey } from './locales.ts'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspacePendingAction } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { DocumentRenderers } from './document-renderers.ts'
+import type { WorkbenchEngineService } from './workbench/service.ts'
+import type { WorkbenchStore } from './workbench/workbench-store.ts'
 
 /** A file navigation request; sequence distinguishes repeated clicks. */
 export interface FileRequest { path: string; line: number | undefined; sequence: number }
@@ -32,8 +34,39 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Navigation row projected from live sidebar panel registrations. */
 export interface Panel { id: MainPanelId; label: string }
 
+/**
+ * Engine handles the shell hosts its left column with: the explorer renders
+ * from the same store the workspace column's tabs use, so both stay one
+ * workbench.
+ */
+export interface WorkbenchEngineHandles {
+  /** Per-session engine store, shared by the explorer and the workspace column. */
+  store: WorkbenchStore
+  /** The engine registry service (file icons, tab registry); absent before the engine activates. */
+  service?: WorkbenchEngineService | undefined
+  /** Open one project file in the workspace column's editor tab. */
+  openFile(path: string): void
+  /** Add one project file or folder to the current conversation as a reference. */
+  referenceFile(path: string, isDir: boolean): void
+  /**
+   * Hand the workspace column's mount region to the engine, or null when the
+   * shell is on screen without it (home and project-library surfaces), which
+   * keeps the workbench hidden instead of floating over those pages.
+   * @param element - the region the engine fills, or null for "no region".
+   */
+  attachRegion(element: HTMLElement | null): void
+  /**
+   * Name the project whose layout the workbench shows, or null when none is
+   * open. Tabs, panes and terminals belong to the project, so this is what
+   * switches the workbench between projects.
+   * @param project - the project's directory, or null to clear it.
+   */
+  setProject(project: string | null): void
+}
+
 /** Callbacks and observable sources owned by the plugin apply scope. */
 export interface WorkbenchInjected {
+  engine: WorkbenchEngineHandles
   api: ProjectApi
   request: typeof fetch
   documentRenderers: DocumentRenderers

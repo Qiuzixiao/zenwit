@@ -15,8 +15,10 @@ afterEach(() => { cleanup(); sessionStorage.clear() })
 it('foreground navigation opens the workbench while background session changes keep home visible', () => {
   let revision = 0
   let current = 'first'
+  const attachRegion = vi.fn()
   const props = {
     t: (key: keyof typeof en) => en[key], api: {},
+    engine: { store: {}, service: undefined, openFile: vi.fn(), referenceFile: vi.fn(), attachRegion },
     useSessions: (select: (value: unknown) => unknown) => select({ phase: 'ready', current, byId: { first: { cwd: '/one' }, creator: { cwd: '/two' } } }),
     useWorkspaces: (select: (value: unknown) => unknown) => select({ phase: 'ready', items: [] }),
     usePanelInfo: (select: (value: unknown) => unknown) => select({ activePanelId: null }),
@@ -31,6 +33,9 @@ it('foreground navigation opens the workbench while background session changes k
   const view = render(<WorkbenchFrame {...props} />)
   expect(screen.getByText('Project home')).toBeTruthy()
   expect(screen.queryByRole('navigation')).toBeNull()
+  // The home surface has no engine region: the frame says so, so the workbench
+  // stays hidden instead of floating over the page.
+  expect(attachRegion).toHaveBeenCalledWith(null)
   current = 'creator'
   view.rerender(<WorkbenchFrame {...props} />)
   expect(screen.getByText('Project home')).toBeTruthy()
@@ -48,6 +53,7 @@ it('returns the selected panel to the built-in surfaces before opening a project
   const openProject = vi.fn().mockResolvedValue(undefined)
   const props = {
     t: (key: keyof typeof en) => en[key], api: {},
+    engine: { store: {}, service: undefined, openFile: vi.fn(), referenceFile: vi.fn(), attachRegion: vi.fn() },
     useSessions: (select: (value: unknown) => unknown) => select({ phase: 'ready', current: undefined, byId: {} }),
     useWorkspaces: (select: (value: unknown) => unknown) => select({ phase: 'ready', items: [] }),
     usePanelInfo: (select: (value: unknown) => unknown) => select({ activePanelId: 'account' }),
