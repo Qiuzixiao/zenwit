@@ -152,7 +152,7 @@
 .navLinks .navActive { background: var(--zw-brand-soft); color: var(--zw-brand-deep); font-weight: 600; }
 .navLinks button:disabled { cursor: not-allowed; opacity: .7; }
 .navTools { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: auto; }
-.navSettings { display: flex; flex: none; align-items: center; }
+.navSettings, .navPluginActions { display: flex; flex: none; align-items: center; }
 .homePluginPage { grid-row: span 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .homePluginPage > * { flex: 1 1 auto; min-width: 0; min-height: 0; }
 .searchBox { display: flex; align-items: center; gap: 7px; width: min(220px, 24vw); height: 32px; padding: 0 10px; box-sizing: border-box; border: 1px solid var(--zw-hairline); border-radius: 8px; background: var(--zw-surface); color: var(--zw-muted); }
@@ -323,41 +323,6 @@
 }
 .paneEditor {
   position: relative;
-}
-.workspaceSettings {
-  min-width: 0;
-  min-height: 44px;
-  overflow: hidden;
-}
-.workspaceFooterActions { display: flex; flex-direction: column; gap: 0; flex: none; min-width: 0; padding: 4px 8px; overflow: visible; border: 1px solid var(--zw-hairline); border-radius: var(--zw-r-card); background: var(--zw-surface); box-shadow: var(--zw-shadow); }
-.workspacePluginActions { min-width: 0; width: 100%; }
-.workspacePluginActions :global(.dshMarketLauncher) { justify-content: center; }
-.workspacePluginActions :global([data-cordis-badge]) { display: grid; grid-template-columns: 1fr auto 1fr; }
-.workspacePluginActions :global([data-cordis-badge]) > :first-child { grid-column: 2; }
-.workspacePluginActions :global([data-cordis-badge]) > :last-child { grid-column: 3; justify-self: end; margin-left: 0; }
-.workspaceSettings > :global([data-slot="sidebar"]) > div {
-  width: 100%;
-  height: 44px;
-  box-sizing: border-box;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.workspaceSettings :global(button[aria-haspopup="dialog"]) {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 42px;
-  margin: 0;
-  padding: 6px 14px;
-  justify-content: center;
-  border-radius: calc(var(--zw-r-card) - 1px);
-  background: transparent;
-  color: var(--zw-text);
-}
-.workspaceSettings :global(button[aria-haspopup="dialog"]):hover {
-  background: var(--zw-surface-2);
 }
 .resizeHandle {
   position: relative;
@@ -1620,6 +1585,7 @@
 .workbenchSurface, .workbenchBody { flex: 1; display: flex; min-height: 0; min-width: 0; overflow: hidden; }
 .pluginPage { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
 .globalActions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.globalSeat { display: flex; flex: none; align-items: center; }
 .globalActions button { min-width: 34px; min-height: 32px; }
 .workbenchError { position: fixed; right: 16px; bottom: 16px; z-index: 20; max-width: min(420px, calc(100vw - 32px)); padding: 8px 12px; border: 1px solid var(--zw-hairline); border-radius: var(--zw-r-sm); background: var(--zw-surface); color: var(--zw-text); font-size: 12px; }
 .activityPanel { --zw-bg: var(--dsw-alias-bg-base); --zw-text: var(--dsw-alias-label-primary); --zw-hairline: var(--dsw-alias-border-l2); --zw-brand-soft: var(--dsw-alias-interactive-bg-hover); --zw-brand: var(--dsw-alias-label-primary); width: min(680px, calc(100vw - 32px)); max-height: min(720px, 85vh); display: flex; flex-direction: column; gap: 0; padding: 0; border: 1px solid var(--zw-hairline); border-radius: 8px; background: var(--zw-bg); color: var(--zw-text); }

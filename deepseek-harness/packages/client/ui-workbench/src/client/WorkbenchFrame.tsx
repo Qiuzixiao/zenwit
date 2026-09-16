@@ -102,6 +102,8 @@ export function WorkbenchFrame(props: WorkbenchProps) {
         {renderSlot('sidebar.panellist', { size: 16, active: panel === item.id }, { only: item.id })}{item.label}
       </button>)}
       <div className={css.globalActions}>
+        <div className={css.globalSeat}>{renderSlot('sidebar.settings', { wide: false })}</div>
+        <div className={css.globalSeat}>{renderSlot('sidebar.footer.action', { wide: false })}</div>
         <button type="button" title={t('attention')} aria-label={t('attention')} onClick={() => setActivity('pending')}><Bell size={17} /><span>{attentionCount}</span></button>
       </div>
     </nav>}

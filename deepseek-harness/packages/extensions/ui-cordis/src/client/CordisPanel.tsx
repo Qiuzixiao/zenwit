@@ -122,17 +122,21 @@ export function CordisPanel({
   const [actionErrors, setActionErrors] = useState<ReadonlyMap<CordisDynamicPluginId, string>>(new Map())
   const visibleRequests = useRef<Set<ApprovalRequestId>>(new Set())
   const rootRef = useRef<HTMLDivElement>(null)
-  const [anchor, setAnchor] = useState<{ left: number; bottom: number }>()
+  const [anchor, setAnchor] = useState<{ left: number; top?: number; bottom?: number }>()
 
-  // The panel is position: fixed (the sidebar clips overflow), so it hugs the
-  // trigger through a measured offset instead of document flow.
+  // The panel is position: fixed (its host clips overflow), so it hugs the trigger
+  // through a measured offset instead of document flow. A trigger with less than the
+  // panel's own 60vh above it opens the panel downward instead.
   useLayoutEffect(() => {
     if (!open) return
     const place = (): void => {
       const rect = rootRef.current?.getBoundingClientRect()
       if (rect !== undefined) {
         const width = Math.min(420, window.innerWidth - 24)
-        setAnchor({ left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)), bottom: window.innerHeight - rect.top + 8 })
+        const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))
+        setAnchor(rect.top < window.innerHeight * 0.6
+          ? { left, top: rect.bottom + 8 }
+          : { left, bottom: window.innerHeight - rect.top + 8 })
       }
     }
     place()

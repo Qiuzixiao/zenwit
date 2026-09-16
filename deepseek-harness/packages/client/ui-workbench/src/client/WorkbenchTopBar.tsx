@@ -16,15 +16,16 @@ export interface WorkbenchTopBarProps extends CopyProps {
   goHome: () => void
   openLibrary: () => void
   renderSlot: WorkbenchProps['renderSlot']
-  /** Surface-owned tools rendered after the settings seat. */
+  /** Surface-owned tools rendered before the global chrome seats. */
   children?: ReactNode
 }
 
 /**
- * Render the brand block, the first-level navigation and the settings seat.
+ * Render the brand block, the first-level navigation, the surface tools and the
+ * two global chrome seats.
  *
  * Both built-in surfaces render this component so their chrome cannot drift
- * apart; only the tool cluster on the right belongs to the surface.
+ * apart; only the tool cluster belongs to the surface.
  */
 export function WorkbenchTopBar({
   surface, panels, activePanel, selectPanel, goHome, openLibrary, renderSlot, t, children,
@@ -67,8 +68,9 @@ export function WorkbenchTopBar({
           </button>))}
       </nav>
       <div className={css.navTools}>
-        <div className={css.navSettings}>{renderSlot('sidebar.settings', { wide: false })}</div>
         {children}
+        <div className={css.navSettings}>{renderSlot('sidebar.settings', { wide: false })}</div>
+        <div className={css.navPluginActions}>{renderSlot('sidebar.footer.action', { wide: false })}</div>
       </div>
     </header>
   )

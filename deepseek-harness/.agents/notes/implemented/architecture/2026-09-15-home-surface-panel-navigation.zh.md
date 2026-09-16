@@ -15,7 +15,9 @@ Status: implemented
 首页本身就是一个面板宿主，并渲染它需要的座位。`HomePage.tsx` 通过 props 接收实时的面板列表、当前选中项、选中动作与 `renderSlot`；`WorkbenchFrame.tsx` 用它已经持有的 hook 与注入面提供这些值。
 
 - `HomePage` 在工具栏里以 `{ wide: false }` 渲染 `sidebar.settings` 座位。既有的 `ui-settings-general` 占用者在这里绘制紧凑触发按钮，并打开与工作区中同一个模态设置面板。
-- `WorkbenchTopBar.tsx` 渲染品牌块、两个内置去处、每一个 `sidebar.panellist` 条目与设置座位。两个内置界面都渲染它，因此外框与工具栏不会各自漂移；只有右侧工具簇属于各自界面。
+- `WorkbenchTopBar.tsx` 渲染品牌块、两个内置去处、每一个 `sidebar.panellist` 条目、两个全局外框座位与各自界面的工具。两个内置界面都渲染它，因此外框与工具栏不会各自漂移；只有工具簇属于各自界面。
+- 两个全局外框座位——`sidebar.settings` 与 `sidebar.footer.action`——由外框栏渲染，而不是由侧栏页脚渲染：`WorkbenchFrame` 把它们放在工作区工具行、提醒铃铛旁边，`WorkbenchTopBar` 把它们放在首页与项目库工具行的右端。`Workspace` 不再渲染侧栏页脚，因此没有界面会重复显示同一个条目，而每个界面都能进入设置。
+- `ui-cordis` 会测量面板触发按钮上方的空间：上方不足面板自身的 `60vh` 时，固定定位的面板改为在触发按钮下方展开。触发按钮不再与页脚位置绑定。
 - `HomePage` 在自己的主体里承载被选中的 `main` 键，取代引导区与三栏项目主体。面板页面获得标题行以下的全部高度。`ProjectLibraryPage` 使用同一套外框、同一个引导区范式加自己的工具；从项目库选中面板会回到首页界面，因为首页是唯一承载面板页面的界面。
 - 内置界面与面板共用一个选中项。首页按钮选中 `null`；选中某个面板会将它标记为 `aria-current="page"` 并隐藏内置主体；项目库按钮在切换界面前清空选中项；打开项目在挂载工作区之前清空它。`Workspace` 继续在中间窗格承载被选中的键，因此显示面板时文档编辑器保持挂载。
 - `WorkbenchFrame` 保留页面选择与标题，但不再为首页和项目库界面渲染 `main` 页面，也不再把它背后的页面主体隐藏。
@@ -40,4 +42,6 @@ Status: implemented
 
 首页主体现在有两种布局，因此 `.homePluginPage` 横跨原先引导区与项目主体占用的行。面板选中项仍然是临时的，刷新即重置。新增一个面板条目会改变首页标题行的宽度，导航行通过收缩而不是换行来吸收它。
 
-验证由工作台客户端测试承担：`tests/home.client.spec.tsx` 断言设置座位被渲染、注册条目是一个选中态正确的导航按钮、点击它到达所有者，以及面板主体替换内置主体；`tests/frame-navigation.client.spec.tsx` 断言打开项目前先清空选中项。该包的类型由客户端聚合检查（`tsc -b tsconfig.client.json`）覆盖。
+工作区侧栏现在只剩项目文件树。设置与插件面板是外框层面的去处，在每一个界面上都存在，包括没有侧栏的界面。曾经额外地提供一个重复侧栏入口的注册者——插件市场——只保留它的一级面板与设置标签页。
+
+验证由工作台客户端测试承担：`tests/home.client.spec.tsx` 断言两个外框座位都被渲染、注册条目是一个选中态正确的导航按钮、点击它到达所有者，以及面板主体替换内置主体；`tests/frame-navigation.client.spec.tsx` 断言工作区工具行渲染这些座位，且打开项目前先清空选中项；`tests/workspace.client.spec.tsx` 继续覆盖没有页脚的侧栏。插件市场移除重复入口由它的 `tests/client-index.spec.ts` 与 `tests/browser-plugin.spec.ts` 覆盖。该包的类型由客户端聚合检查（`tsc -b tsconfig.client.json`）覆盖。

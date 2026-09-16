@@ -37,11 +37,12 @@ it.each([{ language: 'Chinese', copy: zh }, { language: 'English', copy: en }])(
   },
 )
 
-it('navigates to a registered panel, hosts it in the home body, and keeps the settings seat', async () => {
+it('navigates to a registered panel, hosts it in the home body, and keeps the chrome seats', async () => {
   const selectPanel = vi.fn()
   const renderSlot = vi.fn((name: string, _owner: unknown, opts?: { entryKey?: string; only?: string }) => {
     if (name === 'main') return <div>panel:{opts?.entryKey}</div>
     if (name === 'sidebar.settings') return <div>settings seat</div>
+    if (name === 'sidebar.footer.action') return <div>plugin actions seat</div>
     return <span>icon:{opts?.only}</span>
   }) as unknown as WorkbenchProps['renderSlot']
   const panels = [{ id: 'account' as unknown as MainPanelId, label: 'Account center' }]
@@ -54,6 +55,7 @@ it('navigates to a registered panel, hosts it in the home body, and keeps the se
   const view = render(<HomePage {...base} panels={panels} activePanel={null} />)
   await screen.findByText('legacy.022')
   expect(screen.getByText('settings seat')).toBeTruthy()
+  expect(screen.getByText('plugin actions seat')).toBeTruthy()
   const entry = screen.getByRole('button', { name: /Account center/u })
   expect(entry.getAttribute('aria-current')).toBeNull()
   fireEvent.click(entry)

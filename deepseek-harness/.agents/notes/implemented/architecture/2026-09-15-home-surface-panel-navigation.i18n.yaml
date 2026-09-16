@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-15-home-surface-panel-navigation.md
-2026-09-15-home-surface-panel-navigation.md: 8d3aa88a683677951dbc6dc82bb88ccb349f8d34
-2026-09-15-home-surface-panel-navigation.zh.md: 19706caacf6bb0dbacd98db1112cdeeb1cb431e9
+2026-09-15-home-surface-panel-navigation.md: bd25bcbd3981b0904c2c35d12cb6ff12646bcac0
+2026-09-15-home-surface-panel-navigation.zh.md: 6b38ddd46414d58a739ab73a09aaa97d4168bdb2

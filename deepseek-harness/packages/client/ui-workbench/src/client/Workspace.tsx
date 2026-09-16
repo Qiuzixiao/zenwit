@@ -32,7 +32,7 @@ interface ContextMenuState {
     y: number;
 }
 /** One workspace pane props. */
-export type WorkspaceProps = PropsRuntime<'root'> & PropsRenderSlots<'main' | 'sidebar.settings' | 'sidebar.footer.action'> & CopyProps & Pick<WorkbenchProps, 'searchSessions' | 'renameSession' | 'archiveSession' | 'forkSession' | 'usePendingActions' | 'useNavigation' | 'useDocumentRendererRevision' | 'guardNavigation'> & {
+export type WorkspaceProps = PropsRuntime<'root'> & PropsRenderSlots<'main'> & CopyProps & Pick<WorkbenchProps, 'searchSessions' | 'renameSession' | 'archiveSession' | 'forkSession' | 'usePendingActions' | 'useNavigation' | 'useDocumentRendererRevision' | 'guardNavigation'> & {
     projectPath: string;
     closeProject: () => Promise<void>;
     registerCloseRequest?: (request: () => void) => () => void;
@@ -1141,10 +1141,6 @@ export function Workspace(props: WorkspaceProps) {
             </div>}
           </div>}
         </aside>
-        <div className={css.workspaceFooterActions}>
-          <div className={css.workspaceSettings}>{renderSlot('sidebar.settings', { wide: true })}</div>
-          <div className={css.workspacePluginActions}>{renderSlot('sidebar.footer.action', { wide: true })}</div>
-        </div>
       </div>
       {contextMenu !== null && (<div className={css.contextMenu} style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onPointerDown={event => event.stopPropagation()}>
           <button type="button" role="menuitem" onClick={() => openImportPicker(contextMenu.node?.kind === 'dir' ? contextMenu.node.path : contextMenu.node === null ? projectPath : parentPath(contextMenu.node.path))}><FilePlus size={14}/>{t("legacy.120")}</button>

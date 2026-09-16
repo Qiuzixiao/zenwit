@@ -38,6 +38,9 @@ it('foreground navigation opens the workbench while background session changes k
   view.rerender(<WorkbenchFrame {...props} />)
   expect(screen.getByText('Project workspace')).toBeTruthy()
   expect(screen.getByRole('button', { name: en['legacy.012'] })).toBeTruthy()
+  // The settings and plugin-action seats belong to the same bar as the panel entries.
+  expect(screen.getByTestId('sidebar.settings')).toBeTruthy()
+  expect(screen.getByTestId('sidebar.footer.action')).toBeTruthy()
 })
 it('returns the selected panel to the built-in surfaces before opening a project', async () => {
   sessionStorage.setItem('zenwit.workbench.surface', 'library')
