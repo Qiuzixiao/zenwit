@@ -12,6 +12,8 @@ import { applyAdvancedShell } from './advanced-shell.ts'
 import { applyProductBrand } from './product-brand.tsx'
 import { startRendererBootReporter } from './boot-health.ts'
 import { applyDesktopSettings } from './desktop-settings.ts'
+import { applyDesktopAccountSection } from './AccountSection.tsx'
+import { applyDesktopAccountCenter } from './AccountCenter.tsx'
 import { installDesktopDirectoryPickerBridge } from './directory-picker.ts'
 import { parseDesktopClientEnvironment } from './environment.ts'
 import { applyExtendedShell } from './extended-shell.ts'
@@ -19,6 +21,43 @@ import { desktopWindowService, provideDesktopWindow } from './window-service.ts'
 
 export { applyAdvancedShell } from './advanced-shell.ts'
 export { applyDesktopSettings } from './desktop-settings.ts'
+export { AccountSection, applyDesktopAccountSection } from './AccountSection.tsx'
+export type {
+  DesktopAccountSectionInjected,
+  DesktopAccountSectionProps,
+} from './AccountSection.tsx'
+export {
+  AccountCenterIcon,
+  AccountCenterPanel,
+  DESKTOP_ACCOUNT_PANEL_ID,
+  applyDesktopAccountCenter,
+} from './AccountCenter.tsx'
+export type {
+  DesktopAccountCenterIconProps,
+  DesktopAccountCenterInjected,
+  DesktopAccountCenterPanelProps,
+} from './AccountCenter.tsx'
+export {
+  DESKTOP_CONSOLE_RECHARGE_URL,
+  createDesktopAccountApi,
+  desktopAccountPaths,
+  parseDesktopAccountOverview,
+  parseDesktopAccountStatus,
+  parseDesktopAccountUsage,
+} from './account-api.ts'
+export type {
+  DesktopAccountApi,
+  DesktopAccountErrorCode,
+  DesktopAccountOverviewUserView,
+  DesktopAccountOverviewView,
+  DesktopAccountProviderState,
+  DesktopAccountState,
+  DesktopAccountStatusView,
+  DesktopAccountUsageItemView,
+  DesktopAccountUsageQuery,
+  DesktopAccountUsageView,
+  DesktopAccountUserView,
+} from './account-api.ts'
 export { applyExtendedShell, applyFramedShell } from './extended-shell.ts'
 export {
   createDesktopSettingsApi,
@@ -90,6 +129,8 @@ export function apply(ctx: ClientContext): void {
     'dsh-plugin-desktop: native window geometry service',
   )
   const desktopSettings = applyDesktopSettings(ctx, environment)
+  applyDesktopAccountSection(ctx)
+  applyDesktopAccountCenter(ctx)
   ctx.effect(
     () => startRendererBootReporter(ctx.loader),
     'dsh-plugin-desktop: renderer boot health report',

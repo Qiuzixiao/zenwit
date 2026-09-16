@@ -11,6 +11,7 @@ import {
 } from '@deepseek-ai/dsh-client-locale'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-client-connection'
+import type {} from '@deepseek-ai/dsh-credentials'
 import {
   THEME_SETTINGS_NAMESPACE,
   type ThemeSettings,
@@ -56,6 +57,25 @@ import {
   handleDesktopTerminalOpenRequest,
 } from './desktop-settings-route.ts'
 import type {} from './desktop-settings-controller.ts'
+import {
+  DESKTOP_ACCOUNT_CANCEL_PATH,
+  DESKTOP_ACCOUNT_OVERVIEW_PATH,
+  DESKTOP_ACCOUNT_PROVIDER_RETRY_PATH,
+  DESKTOP_ACCOUNT_SIGN_IN_PATH,
+  DESKTOP_ACCOUNT_SIGN_OUT_PATH,
+  DESKTOP_ACCOUNT_STATUS_PATH,
+  DESKTOP_ACCOUNT_USAGE_PATH,
+} from './account-contract.ts'
+import {
+  handleDesktopAccountCancelRequest,
+  handleDesktopAccountOverviewRequest,
+  handleDesktopAccountProviderRetryRequest,
+  handleDesktopAccountSignInRequest,
+  handleDesktopAccountSignOutRequest,
+  handleDesktopAccountStatusRequest,
+  handleDesktopAccountUsageRequest,
+} from './account-route.ts'
+import DesktopAccountController from './account-controller.ts'
 import { DESKTOP_LAN_HTTPS_CA_PATH } from './lan-https-runtime.ts'
 import { desktopBootRecoveryInjections } from './desktop-boot-recovery.ts'
 import type { DesktopLocale, DesktopShellMode } from './runtime.ts'
@@ -334,6 +354,53 @@ export function apply(ctx: Context, config: Config): void {
         `dsh-plugin-desktop: private settings route ${path}`,
       )
     }
+  }
+  const reportAccountError = (operation: string, cause: unknown): void => {
+    ctx.logger.error(
+      `dsh-plugin-desktop: failed to ${operation}: ${cause instanceof Error ? cause.message : String(cause)}`,
+    )
+  }
+  const account = new DesktopAccountController({
+    userDataDirectory: runtime.userDataDirectory,
+    ...(runtime.updates.installationId === undefined
+      ? {}
+      : { installationId: runtime.updates.installationId }),
+    openExternal: url => runtime.openExternal(url),
+    credentials: () => {
+      const credentials = ctx.get('credentials')
+      if (credentials === undefined) {
+        throw new Error('dsh-plugin-desktop: ZenwitAI sign-in requires the credentials service')
+      }
+      return credentials
+    },
+    settings: () => ctx.settings,
+    reportError: reportAccountError,
+  })
+  ctx.effect(
+    () => () => { account.dispose() },
+    'dsh-plugin-desktop: ZenwitAI sign-in ceremony',
+  )
+  const accountRoutes = [
+    [DESKTOP_ACCOUNT_STATUS_PATH, handleDesktopAccountStatusRequest],
+    [DESKTOP_ACCOUNT_SIGN_IN_PATH, handleDesktopAccountSignInRequest],
+    [DESKTOP_ACCOUNT_CANCEL_PATH, handleDesktopAccountCancelRequest],
+    [DESKTOP_ACCOUNT_SIGN_OUT_PATH, handleDesktopAccountSignOutRequest],
+    [DESKTOP_ACCOUNT_PROVIDER_RETRY_PATH, handleDesktopAccountProviderRetryRequest],
+    [DESKTOP_ACCOUNT_OVERVIEW_PATH, handleDesktopAccountOverviewRequest],
+    [DESKTOP_ACCOUNT_USAGE_PATH, handleDesktopAccountUsageRequest],
+  ] as const
+  for (const [path, handler] of accountRoutes) {
+    ctx.effect(
+      () => ctx.webServer.register({
+        kind: 'exact',
+        path,
+        handler: (req, res) => {
+          if (rejectDesktopRequest(ctx, req, res)) return
+          return handler(req, res, rendererOrigin, account, reportAccountError)
+        },
+      }),
+      `dsh-plugin-desktop: private account route ${path}`,
+    )
   }
   ctx.effect(
     () => ctx.webServer.register({

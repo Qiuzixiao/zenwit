@@ -97,6 +97,7 @@ export const RENDERER_BOOT_TIMEOUT_MS = 30_000
 /** Native adapter used by the zenwit launcher and owned by its Cordis shell plugin. */
 export class ElectronDesktopRuntime implements DesktopRuntime {
   readonly platform: DesktopPlatform
+  readonly userDataDirectory: string = app.getPath('userData')
   readonly windowsBuild: number | undefined
   private readonly platformStrategy: ElectronPlatformStrategy
   readonly updates: DesktopUpdateAdapter
@@ -356,6 +357,11 @@ export class ElectronDesktopRuntime implements DesktopRuntime {
       throw new Error('dsh-plugin-desktop: terminal profile is already configured')
     }
     this.terminalSpec = { ...spec }
+  }
+
+  /** @inheritdoc */
+  async openExternal(url: string): Promise<void> {
+    await shell.openExternal(url)
   }
 
   /** @inheritdoc */

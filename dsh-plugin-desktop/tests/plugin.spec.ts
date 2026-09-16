@@ -25,6 +25,15 @@ import {
   DESKTOP_DIRECTORY_VALIDATOR_PATH,
 } from '../src/directory-picker-contract.ts'
 import {
+  DESKTOP_ACCOUNT_CANCEL_PATH,
+  DESKTOP_ACCOUNT_OVERVIEW_PATH,
+  DESKTOP_ACCOUNT_PROVIDER_RETRY_PATH,
+  DESKTOP_ACCOUNT_SIGN_IN_PATH,
+  DESKTOP_ACCOUNT_SIGN_OUT_PATH,
+  DESKTOP_ACCOUNT_STATUS_PATH,
+  DESKTOP_ACCOUNT_USAGE_PATH,
+} from '../src/account-contract.ts'
+import {
   DESKTOP_DEVELOPER_TOOLS_TOGGLE_PATH,
   DESKTOP_DIAGNOSTICS_EXPORT_PATH,
   DESKTOP_AA_SELECT_PATH,
@@ -113,6 +122,7 @@ function createHarness(
   })
   const runtime: DesktopRuntime = {
     platform,
+    userDataDirectory: '/tmp/dsh-desktop-user-data',
     windowsBuild: platform === 'win32' ? 22_631 : undefined,
     locale: 'en',
     updates: {
@@ -135,6 +145,7 @@ function createHarness(
     notifyAttention: () => {},
     registerTrayItem: () => ({ refresh: () => {}, dispose: () => {} }),
     openTerminal: () => {},
+    openExternal: async () => {},
     reloadRenderer: () => {},
     toggleDeveloperTools: () => {},
     exportDiagnostics: async () => {},
@@ -416,6 +427,13 @@ describe('desktop Host plugin', () => {
     harness.requestRejection.mockReturnValue(status)
     apply(harness.ctx, config)
     const expectedPaths = [
+      DESKTOP_ACCOUNT_STATUS_PATH,
+      DESKTOP_ACCOUNT_SIGN_IN_PATH,
+      DESKTOP_ACCOUNT_CANCEL_PATH,
+      DESKTOP_ACCOUNT_SIGN_OUT_PATH,
+      DESKTOP_ACCOUNT_PROVIDER_RETRY_PATH,
+      DESKTOP_ACCOUNT_OVERVIEW_PATH,
+      DESKTOP_ACCOUNT_USAGE_PATH,
       DESKTOP_SETTINGS_PATH,
       DESKTOP_PROFILE_CREATE_PATH,
       DESKTOP_PROFILE_DELETE_PATH,

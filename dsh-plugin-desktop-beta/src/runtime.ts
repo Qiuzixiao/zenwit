@@ -171,6 +171,9 @@ export interface DesktopRuntime {
   /** Current Electron platform. */
   readonly platform: DesktopPlatform
 
+  /** Electron userData directory owning identity and account state. */
+  readonly userDataDirectory: string
+
   /** NT build number used to gate system backdrop materials. */
   readonly windowsBuild: number | undefined
 
@@ -210,6 +213,12 @@ export interface DesktopRuntime {
 
   /** Open a native terminal containing packaged DSH command shims. */
   openTerminal(): void
+
+  /**
+   * Open one already-validated URL in the desktop operating system's browser.
+   * @param url - absolute URL owned by a product origin; never a local path.
+   */
+  openExternal(url: string): Promise<void>
 
   /** Reload the mounted renderer without restarting the Host. */
   reloadRenderer(): void
