@@ -584,3 +584,45 @@ streaming     : 200 text/event-stream   26 SSE chunks   finish_reason=length
 
 - `tokens` 里还有两枚**没人使用但仍活着**的设备令牌：id 18（事故前 app 用的那枚）与 id 19（我走查时建的）。
   两者都是不限额度、永不过期的 relay key；要清就软删它们（不影响任何在用客户端）。
+## 13. 顶栏右侧两个图标位、删掉侧栏底部重复入口（2026-09-16）
+
+### 需求（来自标注截图）
+
+- 侧栏底部的**「插件市场」重复入口**：删掉，顶部导航已经有了。
+- 侧栏底部的**「设置」与「Cordis Plugin 0 running」**：移到右上角，做成两个图标。
+- 底部那两行**整行不保留**。
+
+### 改动
+
+**内核 ui-workbench**：
+
+- WorkbenchFrame（工作区工具行）与 WorkbenchTopBar（首页 / 项目库工具行）都在右侧渲染两个全局座位
+  sidebar.settings 与 sidebar.footer.action（都传 wide: false），位置紧邻提醒铃铛左边；首页自己的工具簇排在这两个图标之前。
+- Workspace 不再渲染侧栏底部（workspaceFooterActions / workspaceSettings / workspacePluginActions 及对应 CSS 一并删除），
+  工作区侧栏现在只剩项目文件树。
+
+**内核 ui-cordis**：
+
+- 面板触发按钮不再假设自己位于页脚：触发按钮上方不足面板自身的 60vh 时，固定定位的面板改为在**下方**展开。
+
+**插件市场 dsh-community-market**：
+
+- 删除重复的 sidebar.footer.action 启动器与 shell.overlay 浮层，连同 market-view-store、MarketLauncher、MarketOverlay 与它们的样式；
+  市场只保留一级面板（main 键）+ 设置里的标签页。
+
+### 验证
+
+| 门禁 | 结果 |
+|---|---|
+| 内核 ui-workbench + ui-cordis 客户端测试 | **145 passed** |
+| 市场 vitest run | **17 files / 137 passed** |
+| 市场 typecheck / check | 干净 |
+| 内核 release:pack --family dsh | **265 tarball** |
+| sync-vendored-runtime --write（stable + beta） | 已同步 |
+| corepack yarn check:layout | 通过 |
+| 内核 test:docs（Agent Note 格式、文档预算、双语配对） | 通过 |
+
+### 遗留
+
+- **视觉复验留给你**：按你的要求我没有再自己起进程。重启应用后请看右上角是否只剩两个图标、侧栏底部是否已经干净。
+

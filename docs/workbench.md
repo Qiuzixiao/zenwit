@@ -28,7 +28,7 @@ Filesystem save conflicts compare the expected disk content before replacement. 
 
 ## Migration continuity
 
-The resident workbench footer declares and renders `sidebar.footer.action`, so Cordis approvals and plugin lifecycle controls survive project and session switches. Run cards open the same panel; the attention list consumes feature-owned pending-action sources without granting permission itself. Normal approvals and questions retain their existing composer owners.
+The resident workbench chrome declares and renders `sidebar.footer.action` in its tool row, so Cordis approvals and plugin lifecycle controls survive project and session switches. The same row hosts the settings seat, which keeps Settings reachable on a surface without a sidebar. Run cards open the same panel; the attention list consumes feature-owned pending-action sources without granting permission itself. Normal approvals and questions retain their existing composer owners.
 
 Foreground Workspace navigation publishes a revision separately from background Session updates. The workbench follows explicit navigation, and the editor can defer cross-project navigation until edits are saved or discarded. History supports current-project/all-project search, rename, fork and archive; archived sessions are excluded from normal lists and navigation.
 
@@ -36,7 +36,7 @@ The directory picker seats are declared by the workbench. Opening an existing di
 
 | Capability | Workbench destination | Verification |
 | --- | --- | --- |
-| Plugin approvals, versions and lifecycle | Resident footer and Run-card review action | Cordis panel test and browser approval flow |
+| Plugin approvals, versions and lifecycle | Workbench tool row and Run-card review action | Cordis panel test and browser approval flow |
 | Normal approval and questions | Composer; global attention navigation | Session-browser tests and composer browser tests |
 | Existing directory selection | Global folder action and directory-flow seats | Registration test and real filesystem HTTP tests |
 | History and archive | Searchable session browser | Session-browser and Workspace navigation tests |
