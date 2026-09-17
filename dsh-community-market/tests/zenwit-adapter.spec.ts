@@ -79,6 +79,22 @@ describe('Zenwit catalog', () => {
     expect(getJson).toHaveBeenCalledTimes(4)
   })
 
+  it('carries operator-authored categories verbatim, including Chinese display labels', async () => {
+    const service = new DefaultCatalogService({ load: async () => [ZENWIT_SOURCE] }, {
+      getJson: async () => ({ finalUrl: ZENWIT_ENDPOINT, value: page([
+        item('zenwit-plugin-screenplay', '写作'),
+        item('zenwit-plugin-mochi', '桌面伙伴'),
+      ]) }),
+    })
+    const index = await service.scanCatalog(signal())
+    expect(index).toBeDefined()
+    const snapshot = service.queryCatalog(index!, { limit: 10 })[0]!.snapshot!
+    expect(snapshot.items.map(entry => entry.categories)).toEqual([['写作'], ['桌面伙伴']])
+    // 分类同时充当筛选值与显示标签：中文值原样参与过滤
+    expect(service.queryCatalog(index!, { category: ['写作'], limit: 10 })[0]!.snapshot!.items.map(entry => entry.id))
+      .toEqual(['zenwit-plugin-screenplay'])
+  })
+
   it('rejects mixed revisions across a paginated scan', async () => {
     const service = new DefaultCatalogService({ load: async () => [ZENWIT_SOURCE] }, {
       getJson: async url => {

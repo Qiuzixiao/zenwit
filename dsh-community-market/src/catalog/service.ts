@@ -96,12 +96,20 @@ function normalizedSearchText(item: CatalogItem): string {
   ].join('\n').toLocaleLowerCase('en-US')
 }
 
+/**
+ * Category values double as display labels in this deployment: the operator authors them in the
+ * catalog console and the market prints them verbatim in its filter and card tags, so non-ASCII
+ * values such as `写作` are legitimate. Only the properties that keep the value usable as a filter
+ * survive: non-empty, at most 64 characters, no control characters, no surrounding whitespace.
+ */
+const CATEGORY_VALUE = /^[^\s\u0000-\u001f\u007f](?:[^\u0000-\u001f\u007f]*[^\s\u0000-\u001f\u007f])?$/u
+
 function reviewedAdapterCategories(value: readonly string[]): readonly string[] {
   if (value.length > 4_096 || value.some(category => (
     typeof category !== 'string'
     || category.length === 0
     || category.length > 64
-    || !/^[a-z0-9][a-z0-9._:-]*$/u.test(category)
+    || !CATEGORY_VALUE.test(category)
   ))) throw new Error('catalog adapter categories are invalid')
   const categories = [...new Set(value)]
   if (categories.length !== value.length) throw new Error('catalog adapter categories contain duplicates')

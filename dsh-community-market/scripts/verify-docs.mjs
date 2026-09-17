@@ -384,8 +384,8 @@ expectInvalid(
 )
 expectInvalid(
   'docs/schemas/catalog-query.schema.json',
-  { ...queryExample, category: ['User Interface'] },
-  'an unstable category identifier',
+  { ...queryExample, category: [' User Interface'] },
+  'a category identifier with surrounding whitespace',
 )
 expectInvalid(
   'docs/schemas/catalog-query.schema.json',

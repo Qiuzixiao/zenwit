@@ -178,7 +178,7 @@ The Host first builds and validates a [`CatalogQuery`](schemas/catalog-query.sch
 | Parameter | Cardinality | Public v1 meaning |
 | --- | --- | --- |
 | `q` | zero or one | Trimmed search text, 1–200 characters. Matching and ranking are provider-defined. |
-| `category` | zero or more | Stable category IDs. Repeated values mean “match any requested category”. Duplicates are invalid. |
+| `category` | zero or more | Category values. Queries, provider pages, and normalized snapshots use the same value, and a deployment may author it as a display label in any script: 1–64 characters, no surrounding whitespace, no control characters. Duplicates are invalid. Repeated values mean “match any requested category”. |
 | `capability` | zero or more | Fabric/host capability IDs. Repeated values mean the item must declare all requested capabilities. Duplicates are invalid. |
 | `cursor` | zero or one | Opaque continuation value returned by the same source for the same effective filters and sort. Maximum 2048 characters. |
 | `limit` | zero or one | Integer from 1 through 200. The normalized Host query defaults to 50; the effective requested value cannot exceed the manifest's `maxLimit`. |

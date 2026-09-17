@@ -178,7 +178,7 @@ Host 先构造并校验 [`CatalogQuery`](schemas/catalog-query.schema.json)，�
 | 参数 | 数量 | 公开 v1 语义 |
 | --- | --- | --- |
 | `q` | 0 或 1 个 | 去除首尾空白的搜索文本，1–200 个字符；匹配和排序方式由 provider 决定。 |
-| `category` | 0 或多个 | 稳定 category ID。重复参数表示“匹配任意一个请求分类”；不允许重复值。 |
+| `category` | 0 或多个 | 分类值。query、provider page 与标准化快照使用同一个值；部署可以直接把它写成显示标签，任意文字均可，只要求 1–64 个字符、没有首尾空白和控制字符。重复参数表示“匹配任意一个请求分类”；不允许重复值。 |
 | `capability` | 0 或多个 | Fabric/host capability ID。重复参数表示条目必须声明全部请求 capability；不允许重复值。 |
 | `cursor` | 0 或 1 个 | 同一来源在相同有效 filter 和 sort 下返回的不透明 continuation value，最长 2048 字符。 |
 | `limit` | 0 或 1 个 | 1 到 200 的整数。Host 标准化 query 默认值为 50；有效请求值不能超过 manifest `maxLimit`。 |
